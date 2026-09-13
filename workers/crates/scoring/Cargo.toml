@@ -1,0 +1,24 @@
+[package]
+name = "scoring"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "scoring-worker"
+path = "src/main.rs"
+
+[dependencies]
+common = { path = "../common" }
+tokio = { workspace = true }
+redis = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+sqlx = { workspace = true }
+anyhow = { workspace = true }
+chromiumoxide = { version = "0.7", features = ["tokio-runtime"] }
+futures = "0.3"
+once_cell = "1"

@@ -1,0 +1,71 @@
+[0E50:52FC][2026-09-08T20:11:13]i001: Burn x64 v5.0.2+aa65968c419420d32e3e1b647aea0082f5ca5b78, Windows v10.0 x64 (Build 19045: Service Pack 0), path: C:\Users\chapp\AppData\Local\Temp\WinGet\RedHat.Podman.5.8.3\podman-installer-windows-amd64.exe
+[0E50:52FC][2026-09-08T20:11:14]i000: Initializing formatted variable 'InstallFolder' to value '[ProgramFiles64Folder]RedHat\Podman'
+[0E50:52FC][2026-09-08T20:11:14]i000: Initializing string variable 'VERSION' to value '5.8.3'
+[0E50:52FC][2026-09-08T20:11:14]i000: Initializing string variable 'MachineProvider' to value 'wsl'
+[0E50:52FC][2026-09-08T20:11:14]i000: Initializing numeric variable 'AllowOldWin' to value '0'
+[0E50:52FC][2026-09-08T20:11:14]i000: Initializing string variable 'LaunchTarget' to value 'explorer.exe'
+[0E50:52FC][2026-09-08T20:11:14]i000: Initializing string variable 'LaunchArguments' to value '"[InstallFolder]\podman-for-windows.html"'
+[0E50:52FC][2026-09-08T20:11:14]i000: Initializing numeric variable 'SkipConfigFileCreation' to value '0'
+[0E50:52FC][2026-09-08T20:11:14]i009: Command Line: '/layout C:\Desktop\localscan\work\podman-layout /quiet /log C:\Desktop\localscan\work\podman-layout.log'
+[0E50:52FC][2026-09-08T20:11:14]i000: Setting string variable 'WixBundleOriginalSource' to value 'C:\Users\chapp\AppData\Local\Temp\WinGet\RedHat.Podman.5.8.3\podman-installer-windows-amd64.exe'
+[0E50:52FC][2026-09-08T20:11:14]i000: Setting string variable 'WixBundleOriginalSourceFolder' to value 'C:\Users\chapp\AppData\Local\Temp\WinGet\RedHat.Podman.5.8.3\'
+[0E50:52FC][2026-09-08T20:11:14]i000: Setting string variable 'WixBundleLog' to value 'C:\Desktop\localscan\work\podman-layout.log'
+[0E50:52FC][2026-09-08T20:11:14]i000: Setting string variable 'WixBundleInProgressName' to value ''
+[0E50:52FC][2026-09-08T20:11:14]i000: Setting string variable 'WixBundleName' to value 'Podman'
+[0E50:52FC][2026-09-08T20:11:14]i000: Setting string variable 'WixBundleManufacturer' to value 'Red Hat'
+[0E50:52FC][2026-09-08T20:11:14]i000: Setting string variable 'WixBundleLayoutDirectory' to value 'C:\Desktop\localscan\work\podman-layout'
+[0E50:5528][2026-09-08T20:11:14]i000: Setting version variable 'WixBundleFileVersion' to value '5.0.2.0'
+[0E50:5528][2026-09-08T20:11:14]i000: Setting numeric variable 'WixStdBASuppressOptionsUI' to value 1
+[0E50:5528][2026-09-08T20:11:14]i000: Setting numeric variable 'WixStdBAShowVersion' to value 1
+[0E50:5528][2026-09-08T20:11:14]i000: Setting numeric variable 'WixStdBALanguageId' to value 1033
+[0E50:52FC][2026-09-08T20:11:14]i100: Detect begin, 1 packages
+[0E50:52FC][2026-09-08T20:11:14]i000: Setting string variable 'CBNumber' to value '19045'
+[0E50:52FC][2026-09-08T20:11:14]i000: Registry key not found. Key = 'SOFTWARE\[WixBundleManufacturer]\[WixBundleName]'
+[0E50:52FC][2026-09-08T20:11:14]i000: Registry key not found. Key = 'SOFTWARE\[WixBundleManufacturer]\Updates\[WixBundleName]'
+[0E50:52FC][2026-09-08T20:11:14]i052: Condition 'PreviousInstallFolder' evaluates to false.
+[0E50:52FC][2026-09-08T20:11:14]i101: Detected package: Setup, state: Absent, cached: No, install registration state: Absent, cache registration state: Absent
+[0E50:52FC][2026-09-08T20:11:14]i199: Detect complete, result: 0x0, registration state: None, cached: No, eligible for cleanup: No
+[0E50:52FC][2026-09-08T20:11:14]i200: Plan begin, 1 packages, action: Layout
+[0E50:52FC][2026-09-08T20:11:14]i222: Planned rollback boundary: 'WixDefaultBoundary', vital: Yes, transaction: No (default: No)
+[0E50:52FC][2026-09-08T20:11:14]i201: Planned package: Setup, state: Absent, default requested: Cache, ba requested: Cache, execute: None, rollback: None, default cache strategy: Keep, ba requested strategy: Keep, cache: No, uncache: No, dependency: None, expected install registration state: Absent, expected cache registration state: Absent
+[0E50:52FC][2026-09-08T20:11:14]i299: Plan complete, result: 0x0
+[0E50:52FC][2026-09-08T20:11:14]i300: Apply begin
+[0E50:4BC8][2026-09-08T20:11:14]i335: Acquiring bundle payload: , copy from: C:\Users\chapp\AppData\Local\Temp\WinGet\RedHat.Podman.5.8.3\podman-installer-windows-amd64.exe
+[0E50:4BC8][2026-09-08T20:11:14]i000: Layout bundle from: 'C:\Users\chapp\AppData\Local\Temp\{40BDB669-6620-4799-A2C4-EFAE13F602A6}\{462CF9C3-20B3-45A0-9EA2-3EAD2F503A2D}' to: 'C:\Desktop\localscan\work\podman-layout\podman-setup.exe'
+[0E50:5528][2026-09-08T20:11:14]i000: Setting string variable 'WixStdBARestartRequired' to value ''
+[0E50:52FC][2026-09-08T20:11:14]i399: Apply complete, result: 0x0, restart: None, ba requested restart:  No
+[0E50:52FC][2026-09-08T20:11:14]i500: Shutting down, exit code: 0x0
+[0E50:52FC][2026-09-08T20:11:14]i502: Cleanup begin.
+[0E50:52FC][2026-09-08T20:11:14]i504: Cleanup check skipped since this per-machine bundle would require elevation.
+[0E50:52FC][2026-09-08T20:11:14]i599: Cleanup complete, result: 0x0
+[0E50:52FC][2026-09-08T20:11:14]i410: Variable: AllowOldWin = 0
+[0E50:52FC][2026-09-08T20:11:14]i410: Variable: CBNumber = 19045
+[0E50:52FC][2026-09-08T20:11:14]i410: Variable: InstallFolder = C:\Program Files\RedHat\Podman
+[0E50:52FC][2026-09-08T20:11:14]i410: Variable: LaunchArguments = "[InstallFolder]\podman-for-windows.html"
+[0E50:52FC][2026-09-08T20:11:14]i410: Variable: LaunchTarget = explorer.exe
+[0E50:52FC][2026-09-08T20:11:14]i410: Variable: MachineProvider = wsl
+[0E50:52FC][2026-09-08T20:11:14]i410: Variable: ProgramFiles64Folder = C:\Program Files\
+[0E50:52FC][2026-09-08T20:11:14]i410: Variable: RebootPending = 1
+[0E50:52FC][2026-09-08T20:11:14]i410: Variable: SkipConfigFileCreation = 0
+[0E50:52FC][2026-09-08T20:11:14]i410: Variable: VERSION = 5.8.3
+[0E50:52FC][2026-09-08T20:11:14]i410: Variable: WixBundleAction = 2
+[0E50:52FC][2026-09-08T20:11:14]i410: Variable: WixBundleCommandLineAction = 2
+[0E50:52FC][2026-09-08T20:11:14]i410: Variable: WixBundleElevated = 0
+[0E50:52FC][2026-09-08T20:11:14]i410: Variable: WixBundleFileVersion = 5.0.2.0
+[0E50:52FC][2026-09-08T20:11:14]i410: Variable: WixBundleInProgressName = 
+[0E50:52FC][2026-09-08T20:11:14]i410: Variable: WixBundleInstalled = 0
+[0E50:52FC][2026-09-08T20:11:14]i410: Variable: WixBundleLayoutDirectory = C:\Desktop\localscan\work\podman-layout
+[0E50:52FC][2026-09-08T20:11:14]i410: Variable: WixBundleLog = C:\Desktop\localscan\work\podman-layout.log
+[0E50:52FC][2026-09-08T20:11:14]i410: Variable: WixBundleManufacturer = Red Hat
+[0E50:52FC][2026-09-08T20:11:14]i410: Variable: WixBundleName = Podman
+[0E50:52FC][2026-09-08T20:11:14]i410: Variable: WixBundleOriginalSource = C:\Users\chapp\AppData\Local\Temp\WinGet\RedHat.Podman.5.8.3\podman-installer-windows-amd64.exe
+[0E50:52FC][2026-09-08T20:11:14]i410: Variable: WixBundleOriginalSourceFolder = C:\Users\chapp\AppData\Local\Temp\WinGet\RedHat.Podman.5.8.3\
+[0E50:52FC][2026-09-08T20:11:14]i410: Variable: WixBundleProviderKey = {462CF9C3-20B3-45A0-9EA2-3EAD2F503A2D}
+[0E50:52FC][2026-09-08T20:11:14]i410: Variable: WixBundleTag = 
+[0E50:52FC][2026-09-08T20:11:14]i410: Variable: WixBundleUILevel = 2
+[0E50:52FC][2026-09-08T20:11:14]i410: Variable: WixBundleVersion = 5.8.3
+[0E50:52FC][2026-09-08T20:11:14]i410: Variable: WixStdBALanguageId = 1033
+[0E50:52FC][2026-09-08T20:11:14]i410: Variable: WixStdBARestartRequired = 
+[0E50:52FC][2026-09-08T20:11:14]i410: Variable: WixStdBAShowVersion = 1
+[0E50:52FC][2026-09-08T20:11:14]i410: Variable: WixStdBASuppressOptionsUI = 1
+[0E50:52FC][2026-09-08T20:11:14]i007: Exit code: 0x0, restarting: No
