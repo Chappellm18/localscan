@@ -6,6 +6,8 @@
 use crate::extract::RawCandidate;
 use anyhow::Result;
 use common::job::DiscoveryJob;
+use serde::Deserialize;
+use std::collections::HashMap;
 
 pub async fn discover_businesses(job: &DiscoveryJob) -> Result<Vec<RawCandidate>> {
     let mut candidates = Vec::new();
@@ -17,19 +19,138 @@ pub async fn discover_businesses(job: &DiscoveryJob) -> Result<Vec<RawCandidate>
     Ok(candidates)
 }
 
-/// Lowest-risk source (DESIGN.md §4) — general web crawl seeded from
-/// search/directory pages, using `spider` for the actual crawl frontier
-/// (concurrency, politeness/robots.txt, rate limiting are handled by the
-/// crate). Fill in seed URLs / extraction selectors for your chosen
-/// starting points (local directories, chamber-of-commerce listings, etc).
+#[derive(Debug, Deserialize)]
+struct NominatimResult {
+    lat: String,
+    lon: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct OverpassResponse {
+    elements: Vec<OverpassElement>,
+}
+
+#[derive(Debug, Deserialize)]
+struct OverpassElement {
+    id: u64,
+    tags: Option<HashMap<String, String>>,
+}
+
+fn build_address(tags: &HashMap<String, String>) -> Option<String> {
+    let parts: Vec<&str> = [
+        tags.get("addr:housenumber").map(String::as_str),
+        tags.get("addr:street").map(String::as_str),
+        tags.get("addr:city").map(String::as_str),
+        tags.get("addr:state").map(String::as_str),
+        tags.get("addr:postcode").map(String::as_str),
+    ]
+    .into_iter()
+    .flatten()
+    .collect();
+
+    if parts.is_empty() {
+        None
+    } else {
+        Some(parts.join(" "))
+    }
+}
+
+/// Lowest-risk source (DESIGN.md §4) — rather than scraping an arbitrary
+/// directory site's HTML (fragile, and often blocked by robots.txt, which
+/// `spider` respects anyway), this queries OpenStreetMap directly: Nominatim
+/// geocodes the ZIP to a center point, then Overpass returns tagged
+/// businesses (shop=*/amenity=*) within radius_miles of it. Both are free,
+/// keyless, and explicitly meant for this kind of POI lookup.
+///
+/// Note: Nominatim's usage policy caps unauthenticated use at ~1 req/sec
+/// and requires a descriptive User-Agent (set below) — fine for dev/low
+/// volume, but if this needs to run at real job throughput later, look at
+/// a self-hosted Nominatim/Overpass instance or a paid geocoding provider.
 async fn crawl_business_websites(job: &DiscoveryJob) -> Result<Vec<RawCandidate>> {
-    tracing::debug!(zip = %job.zip, "crawl_business_websites: not yet implemented");
-    // Example shape of what this will look like with `spider`:
-    //
-    // let mut website = spider::website::Website::new(&seed_url);
-    // website.crawl().await;
-    // for page in website.get_pages() { /* extract via `scraper` selectors */ }
-    Ok(Vec::new())
+    let client = reqwest::Client::builder()
+        .user_agent("LocalScan/0.1 (local dev)")
+        .build()?;
+
+    let geo_resp: Vec<NominatimResult> = client
+        .get("https://nominatim.openstreetmap.org/search")
+        .query(&[
+            ("postalcode", job.zip.as_str()),
+            ("country", "US"),
+            ("format", "json"),
+            ("limit", "1"),
+        ])
+        .send()
+        .await?
+        .json()
+        .await?;
+
+    let Some(center) = geo_resp.into_iter().next() else {
+        tracing::warn!(zip = %job.zip, "crawl_business_websites: could not geocode zip, skipping");
+        return Ok(Vec::new());
+    };
+    let lat: f64 = center.lat.parse()?;
+    let lon: f64 = center.lon.parse()?;
+
+    let radius_meters = (job.radius_miles.unwrap_or(5) as f64 * 1609.34) as u32;
+
+    let query = if let Some(cat) = &job.category_filter {
+        let cat = cat.replace('"', "");
+        format!(
+            r#"[out:json][timeout:25];
+(
+  node["shop"="{cat}"](around:{radius_meters},{lat},{lon});
+  node["amenity"="{cat}"](around:{radius_meters},{lat},{lon});
+);
+out body;"#
+        )
+    } else {
+        format!(
+            r#"[out:json][timeout:25];
+(
+  node["shop"](around:{radius_meters},{lat},{lon});
+  node["amenity"](around:{radius_meters},{lat},{lon});
+);
+out body;"#
+        )
+    };
+
+    let overpass_resp: OverpassResponse = client
+        .post("https://overpass-api.de/api/interpreter")
+        .body(query)
+        .send()
+        .await?
+        .json()
+        .await?;
+
+    let candidates = overpass_resp
+        .elements
+        .into_iter()
+        .filter_map(|el| {
+            let tags = el.tags?;
+            let name = tags.get("name")?.clone();
+            let address = build_address(&tags);
+            let category = tags.get("shop").or_else(|| tags.get("amenity")).cloned();
+            let phone = tags.get("phone").or_else(|| tags.get("contact:phone")).cloned();
+            let website_url = tags
+                .get("website")
+                .or_else(|| tags.get("contact:website"))
+                .cloned();
+
+            Some(RawCandidate {
+                source: "business_website".to_string(),
+                source_id: format!("osm:{}", el.id),
+                raw_fields: serde_json::json!({
+                    "name": name,
+                    "address": address,
+                    "category": category,
+                    "phone": phone,
+                    "website_url": website_url,
+                }),
+            })
+        })
+        .collect();
+
+    Ok(candidates)
 }
 
 /// Facebook Page scraping — see DESIGN.md §4 for the legal/ToS concerns

@@ -19,6 +19,9 @@ if (Test-Path -LiteralPath $pythonScripts) {
     }
 }
 
+$env:PODMAN_COMPOSE_WARNING_LOGS = 'false'
+$ErrorActionPreference = 'Continue'
+
 function Assert-Command {
     param([string]$Name)
 
@@ -65,7 +68,7 @@ $envAssignments = foreach ($line in $envLines) {
 $workerEnvironment = $envAssignments -join '; '
 
 Assert-Command 'podman'
-& podman compose version *> $null
+& podman compose version 2>&1 | Out-Null
 if ($LASTEXITCODE -ne 0) {
     throw "Podman Compose is unavailable. Install its provider with: py -m pip install --user podman-compose"
 }
