@@ -20,6 +20,7 @@ use common::{
 use futures::StreamExt;
 use sqlx::postgres::PgPoolOptions;
 use std::env;
+use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::Semaphore;
 use uuid::Uuid;
@@ -42,7 +43,14 @@ async fn main() -> Result<()> {
 
     let pg_pool = PgPoolOptions::new().max_connections(5).connect(&database_url).await?;
 
+    // Give each worker its own profile so it cannot collide with an existing
+    // Chrome instance or another scoring worker using chromiumoxide's default.
+    let browser_user_data_dir = env::var_os("SCORING_CHROME_USER_DATA_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| env::temp_dir().join(format!("localscan-scoring-{}", Uuid::new_v4())));
     let browser_config = BrowserConfig::builder()
+        .user_data_dir(browser_user_data_dir)
+        .new_headless_mode()
         .build()
         .map_err(anyhow::Error::msg)?;
     let (browser, mut handler) = Browser::launch(browser_config).await?;
