@@ -42,11 +42,21 @@ async fn main() -> Result<()> {
 
     let pg_pool = PgPoolOptions::new().max_connections(5).connect(&database_url).await?;
 
-    let (browser, mut handler) = Browser::launch(BrowserConfig::builder().build().unwrap()).await?;
+    let browser_config = BrowserConfig::builder()
+        .build()
+        .map_err(anyhow::Error::msg)?;
+    let (browser, mut handler) = Browser::launch(browser_config).await?;
     // chromiumoxide requires polling the handler stream to actually drive
     // the browser connection — spawn that off so it runs independently of
     // the job loop below.
-    tokio::spawn(async move { while handler.next().await.is_some() {} });
+    tokio::spawn(async move {
+        while let Some(result) = handler.next().await {
+            if let Err(error) = result {
+                tracing::error!(%error, "Chromium DevTools connection failed");
+                break;
+            }
+        }
+    });
     let browser = Arc::new(browser);
 
     let mut streams =
