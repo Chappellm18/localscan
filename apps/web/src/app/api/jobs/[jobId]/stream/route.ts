@@ -12,8 +12,11 @@ import { getRedis } from "@/lib/redis";
 // NOTE: polling Redis on an interval is the simple version of this — an
 // upgrade path is Redis keyspace notifications so updates push instead of
 // poll. Fine to ship polling first; swap later if latency matters.
-export async function GET(req: NextRequest, { params }: { params: { jobId: string } }) {
-  const { jobId } = params;
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ jobId: string }> },
+) {
+  const { jobId } = await params;
   const redis = getRedis();
 
   const stream = new ReadableStream({
