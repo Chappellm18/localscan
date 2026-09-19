@@ -56,7 +56,10 @@ function Stop-PreviousServices {
         if ([int]::TryParse($pidText.Trim(), [ref]$servicePid)) {
             $serviceProcess = Get-Process -Id $servicePid -ErrorAction SilentlyContinue
             if ($serviceProcess) {
-                Stop-Process -Id $servicePid -Force -ErrorAction Stop
+                & taskkill /PID $servicePid /T /F *> $null
+                if ($LASTEXITCODE -ne 0) {
+                    throw "Unable to stop the previous $($_.BaseName) process tree."
+                }
             }
         }
     }
