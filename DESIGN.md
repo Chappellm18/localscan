@@ -89,7 +89,7 @@ Once a business's own website is identified, crawling *that* site directly (not 
 
 Each business report shows: overall score (A–F or 0–100), category breakdown, and a plain-English summary ("This site fails 12 WCAG contrast checks and takes 6.2s to load on mobile") — this becomes the actual sales copy for outreach.
 
-**Tooling:** axe-core (open source, run headless via Puppeteer/Playwright) + Google PageSpeed Insights API (free, generous quota) covers most of this without building custom crawlers.
+**Tooling:** axe-core (open source, injected into Chromiumoxide) plus browser navigation timing and DOM signals covers the first pass without a per-request PageSpeed API dependency. The UI renders the complete ZIP result extent and an explainable score breakdown.
 
 ## 6. Tech Stack (proposed)
 

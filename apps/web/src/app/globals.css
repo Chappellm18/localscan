@@ -281,6 +281,29 @@ a {
   transform-origin: center;
 }
 
+.zip-boundary {
+  border: 2px dashed rgba(25, 61, 46, 0.62);
+  border-radius: 18px;
+  inset: 8% 8%;
+  pointer-events: none;
+  position: absolute;
+}
+
+.map-location-label {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  left: 16px;
+  padding: 9px 12px;
+  position: absolute;
+  top: 16px;
+  z-index: 2;
+}
+
+.map-location-label strong { font: 700 0.8rem "DM Mono", monospace; }
+.map-location-label span { color: var(--muted); font: 0.6rem "DM Mono", monospace; margin-top: 3px; text-transform: uppercase; }
+
 .map-road {
   background: rgba(255, 255, 255, 0.8);
   height: 14px;
@@ -351,6 +374,13 @@ a {
   color: white;
   padding: 34px 30px;
 }
+
+.score-breakdown { border-top: 1px solid rgba(255,255,255,.16); margin-top: 24px; padding-top: 18px; }
+.score-row { display: grid; grid-template-columns: 1fr auto; gap: 5px 10px; margin-top: 12px; }
+.score-row span, .score-row strong { font: 0.65rem "DM Mono", monospace; text-transform: uppercase; }
+.score-row strong { color: var(--lime); }
+.score-track { background: rgba(255,255,255,.16); grid-column: 1 / -1; height: 4px; }
+.score-track i { background: var(--lime); display: block; height: 100%; }
 
 .result-panel.empty { align-content: center; display: grid; }
 .result-panel h2, .result-card h2 { font-size: 1.45rem; letter-spacing: -0.05em; margin: 7px 0 10px; }

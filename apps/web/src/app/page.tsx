@@ -14,6 +14,10 @@ type Result = {
   lng: number | null;
   overall_score: number | null;
   accessibility_score: number | null;
+  performance_score: number | null;
+  seo_score: number | null;
+  basics_score: number | null;
+  modernity_score: number | null;
 };
 
 type ViewMode = "map" | "list";
@@ -22,19 +26,32 @@ function scoreLabel(score: number | null) {
   return score === null ? "Not scored" : `${Math.round(score)}/100`;
 }
 
-function pinPosition(result: Result, index: number, results: Result[]) {
+function mapBounds(results: Result[]) {
   const located = results.filter(
     (candidate): candidate is Result & { lat: number; lng: number } =>
       candidate.lat !== null && candidate.lng !== null,
   );
-  if (result.lat !== null && result.lng !== null && located.length > 1) {
+  if (located.length) {
     const latitudes = located.map((candidate) => candidate.lat);
     const longitudes = located.map((candidate) => candidate.lng);
-    const latRange = Math.max(...latitudes) - Math.min(...latitudes) || 1;
-    const lngRange = Math.max(...longitudes) - Math.min(...longitudes) || 1;
+    const latRange = Math.max(Math.max(...latitudes) - Math.min(...latitudes), 0.01);
+    const lngRange = Math.max(Math.max(...longitudes) - Math.min(...longitudes), 0.01);
     return {
-      left: `${14 + ((result.lng - Math.min(...longitudes)) / lngRange) * 72}%`,
-      top: `${18 + (1 - (result.lat - Math.min(...latitudes)) / latRange) * 64}%`,
+      minLat: Math.min(...latitudes) - latRange * 0.2,
+      maxLat: Math.max(...latitudes) + latRange * 0.2,
+      minLng: Math.min(...longitudes) - lngRange * 0.2,
+      maxLng: Math.max(...longitudes) + lngRange * 0.2,
+    };
+  }
+  return { minLat: 0, maxLat: 1, minLng: 0, maxLng: 1 };
+}
+
+function pinPosition(result: Result, index: number, results: Result[]) {
+  const bounds = mapBounds(results);
+  if (result.lat !== null && result.lng !== null && bounds.maxLat > 1) {
+    return {
+      left: `${((result.lng - bounds.minLng) / (bounds.maxLng - bounds.minLng)) * 100}%`,
+      top: `${(1 - (result.lat - bounds.minLat) / (bounds.maxLat - bounds.minLat)) * 100}%`,
     };
   }
   return { left: `${18 + ((index * 31) % 68)}%`, top: `${22 + ((index * 47) % 58)}%` };
@@ -151,8 +168,8 @@ export default function Home() {
             <div className="results-layout">
               <div className="interactive-map" aria-label="Interactive business map">
                 <div className="map-controls"><button onClick={() => setMapScale((scale) => Math.min(2, scale + 0.2))} aria-label="Zoom in">+</button><button onClick={() => setMapScale((scale) => Math.max(0.7, scale - 0.2))} aria-label="Zoom out">−</button></div>
-                <div className="map-surface" style={{ transform: `scale(${mapScale})` }}><div className="map-road road-a" /><div className="map-road road-b" /><div className="map-road road-c" />{results.map((result, index) => <button key={result.id} className={`result-pin ${selectedId === result.id ? "selected" : ""}`} style={pinPosition(result, index, results)} onClick={() => setSelectedId(result.id)} aria-label={`View ${result.name}`}><span>{index + 1}</span></button>)}</div>
-                <div className="map-caption"><span className="map-dot" /> Select a pin to see business details</div>
+                <div className="map-surface" style={{ transform: `scale(${mapScale})` }}><div className="map-road road-a" /><div className="map-road road-b" /><div className="map-road road-c" /><div className="zip-boundary" aria-label={`ZIP code ${zip} area`} />{results.map((result, index) => <button key={result.id} className={`result-pin ${selectedId === result.id ? "selected" : ""}`} style={pinPosition(result, index, results)} onClick={() => setSelectedId(result.id)} aria-label={`View ${result.name}`}><span>{index + 1}</span></button>)}</div>
+                <div className="map-location-label"><strong>{zip}</strong><span>ZIP code area</span></div><div className="map-caption"><span className="map-dot" /> Showing the full ZIP area · Select a pin for details</div>
               </div>
               <ResultPanel result={results.find((result) => result.id === selectedId) ?? results[0]} />
             </div>
@@ -166,7 +183,14 @@ export default function Home() {
 
 function ResultPanel({ result }: { result?: Result }) {
   if (!result) return <aside className="result-panel empty"><strong>No businesses yet</strong><p>Results will appear here as they are discovered.</p></aside>;
-  return <aside className="result-panel"><p className="card-kicker">{result.category ?? "Local business"}</p><h2>{result.name}</h2><p className="result-address">{result.address ?? "Address unavailable"}</p><div className="score-large">{scoreLabel(result.overall_score)}</div><p className="score-note">Overall online presence score</p>{result.website_url && <a className="website-link" href={result.website_url} target="_blank" rel="noreferrer">Visit website <span>↗</span></a>}</aside>;
+  const dimensions = [
+    ["Accessibility", result.accessibility_score],
+    ["Performance", result.performance_score],
+    ["SEO", result.seo_score],
+    ["Basics", result.basics_score],
+    ["Modernity", result.modernity_score],
+  ] as const;
+  return <aside className="result-panel"><p className="card-kicker">{result.category ?? "Local business"}</p><h2>{result.name}</h2><p className="result-address">{result.address ?? "Address unavailable"}</p><div className="score-large">{scoreLabel(result.overall_score)}</div><p className="score-note">Overall online presence score</p><div className="score-breakdown">{dimensions.map(([label, score]) => <div className="score-row" key={label}><span>{label}</span><strong>{scoreLabel(score)}</strong><div className="score-track"><i style={{ width: `${score ?? 0}%` }} /></div></div>)}</div>{result.website_url && <a className="website-link" href={result.website_url} target="_blank" rel="noreferrer">Visit website <span>↗</span></a>}</aside>;
 }
 
 function ResultCard({ result, index }: { result: Result; index: number }) {

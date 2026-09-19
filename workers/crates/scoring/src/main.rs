@@ -154,22 +154,24 @@ async fn score_business(
 
     let axe_report = axe::run_axe(&page).await?;
     let basics = rubric::check_basics(&page).await?;
-    let score = rubric::compute_score(&axe_report, &basics);
+    let signals = rubric::collect_page_signals(&page).await?;
+    let score = rubric::compute_score(&axe_report, &basics, &signals);
 
-    sqlx::query!(
+    sqlx::query(
         r#"
         INSERT INTO site_scores
-            (business_id, overall_score, accessibility_score, performance_score, seo_score, basics_score, raw_report, scanned_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, now())
+            (business_id, overall_score, accessibility_score, performance_score, seo_score, basics_score, modernity_score, raw_report, scanned_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now())
         "#,
-        job.business_id,
-        score.overall,
-        score.accessibility,
-        score.performance,
-        score.seo,
-        score.basics,
-        axe_report,
     )
+    .bind(job.business_id)
+    .bind(score.overall)
+    .bind(score.accessibility)
+    .bind(score.performance)
+    .bind(score.seo)
+    .bind(score.basics)
+    .bind(score.modernity)
+    .bind(serde_json::json!({ "axe": axe_report, "signals": signals }))
     .execute(pool)
     .await?;
 
