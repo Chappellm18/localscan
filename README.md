@@ -105,9 +105,9 @@ queue contract, status reporting, SSE streaming, Postgres schema, worker
 process structure, axe-core injection mechanics.
 
 **Explicitly stubbed / needs real implementation:**
-- `workers/crates/discovery/src/sources.rs` — the actual crawl logic per
-  source (business websites, Facebook, Instagram). See DESIGN.md §4 for
-  the source decision and the concerns flagged on each.
+- `workers/crates/discovery/src/sources.rs` — Facebook and Instagram sources
+  remain deferred; the primary OpenStreetMap ZIP discovery source is wired up.
+  See DESIGN.md §4 for the source decision and the concerns flagged on each.
 - `workers/crates/discovery/src/extract.rs` — field normalization/dedup
   across sources.
 - Scoring heuristics should be calibrated against real scans before being used

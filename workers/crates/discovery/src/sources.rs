@@ -23,6 +23,7 @@ pub async fn discover_businesses(job: &DiscoveryJob) -> Result<Vec<RawCandidate>
 struct NominatimResult {
     lat: String,
     lon: String,
+    boundingbox: [String; 4],
 }
 
 #[derive(Debug, Deserialize)]
@@ -67,9 +68,10 @@ fn build_address(tags: &HashMap<String, String>) -> Option<String> {
 /// Lowest-risk source (DESIGN.md §4) — rather than scraping an arbitrary
 /// directory site's HTML (fragile, and often blocked by robots.txt, which
 /// `spider` respects anyway), this queries OpenStreetMap directly: Nominatim
-/// geocodes the ZIP to a center point, then Overpass returns tagged
-/// businesses (shop=*/amenity=*) within radius_miles of it. Both are free,
-/// keyless, and explicitly meant for this kind of POI lookup.
+/// geocodes the ZIP to a center point and bounding box, then Overpass returns
+/// tagged businesses inside the full ZIP area (or within radius_miles when
+/// explicitly requested). Both are free, keyless, and explicitly meant for
+/// this kind of POI lookup.
 ///
 /// Note: Nominatim's usage policy caps unauthenticated use at ~1 req/sec
 /// and requires a descriptive User-Agent (set below) — fine for dev/low
@@ -100,33 +102,34 @@ async fn crawl_business_websites(job: &DiscoveryJob) -> Result<Vec<RawCandidate>
     };
     let lat: f64 = center.lat.parse()?;
     let lon: f64 = center.lon.parse()?;
-
-    let radius_meters = (job.radius_miles.unwrap_or(5) as f64 * 1609.34) as u32;
+    let [south, north, west, east] = center.boundingbox;
+    let radius_meters = (job.radius_miles.unwrap_or(0) as f64 * 1609.34) as u32;
+    let area = if radius_meters > 0 {
+        format!("(around:{radius_meters},{lat},{lon})")
+    } else {
+        format!("({south},{west},{north},{east})")
+    };
 
     let query = if let Some(cat) = &job.category_filter {
         let cat = cat.replace('"', "");
         format!(
-            r#"[out:json][timeout:25];
+            r#"[out:json][timeout:60];
 (
-  node["shop"="{cat}"](around:{radius_meters},{lat},{lon});
-  node["amenity"="{cat}"](around:{radius_meters},{lat},{lon});
-  way["shop"="{cat}"](around:{radius_meters},{lat},{lon});
-  way["amenity"="{cat}"](around:{radius_meters},{lat},{lon});
-  relation["shop"="{cat}"](around:{radius_meters},{lat},{lon});
-  relation["amenity"="{cat}"](around:{radius_meters},{lat},{lon});
+ nwr["shop"="{cat}"]{area};
+ nwr["amenity"="{cat}"]{area};
 );
 out body center;"#
         )
     } else {
         format!(
-            r#"[out:json][timeout:25];
+            r#"[out:json][timeout:60];
 (
-  node["shop"](around:{radius_meters},{lat},{lon});
-  node["amenity"](around:{radius_meters},{lat},{lon});
-  way["shop"](around:{radius_meters},{lat},{lon});
-  way["amenity"](around:{radius_meters},{lat},{lon});
-  relation["shop"](around:{radius_meters},{lat},{lon});
-  relation["amenity"](around:{radius_meters},{lat},{lon});
+ nwr["shop"]{area};
+ nwr["amenity"]{area};
+ nwr["office"]{area};
+ nwr["craft"]{area};
+ nwr["tourism"]{area};
+ nwr["healthcare"]{area};
 );
 out body center;"#
         )
@@ -137,6 +140,7 @@ out body center;"#
         .body(query)
         .send()
         .await?
+        .error_for_status()?
         .json()
         .await?;
 
@@ -146,6 +150,14 @@ out body center;"#
         .filter_map(|el| {
             let tags = el.tags?;
             let name = tags.get("name")?.clone();
+            if job.radius_miles.is_none()
+                && tags
+                    .get("addr:postcode")
+                    .map(|postcode| postcode.chars().take(5).collect::<String>() != job.zip)
+                    .unwrap_or(false)
+            {
+                return None;
+            }
             let address = build_address(&tags);
             let category = tags.get("shop").or_else(|| tags.get("amenity")).cloned();
             let phone = tags
