@@ -50,7 +50,7 @@ function Start-HiddenService {
 function Stop-PreviousServices {
     param([string]$LogRoot)
 
-    $stoppedPids = [System.Collections.Generic.List[int]]::new()
+    $stoppedPids = [System.Collections.Generic.HashSet[int]]::new()
     Get-ChildItem -LiteralPath $LogRoot -Filter '*.pid' -ErrorAction SilentlyContinue | ForEach-Object {
         $pidText = Get-Content -LiteralPath $_.FullName -Raw -ErrorAction SilentlyContinue
         $servicePid = 0
@@ -61,7 +61,27 @@ function Stop-PreviousServices {
                 if ($LASTEXITCODE -ne 0) {
                     throw "Unable to stop the previous $($_.BaseName) process tree."
                 }
-                $stoppedPids.Add($servicePid)
+                $stoppedPids.Add($servicePid) | Out-Null
+            }
+        }
+    }
+
+    $projectPath = [System.IO.Path]::GetFullPath($ProjectRoot).TrimEnd('\')
+    $projectPattern = [regex]::Escape($projectPath)
+    $serviceProcesses = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
+        Where-Object {
+            $_.ProcessId -ne $PID -and
+            $_.CommandLine -and
+            $_.CommandLine -match "(?i)$projectPattern" -and
+            $_.CommandLine -match '(?i)(next(\.cmd)?\s+dev|discovery-worker|scoring-worker|podman\s+compose\s+logs)'
+        }
+
+    foreach ($serviceProcess in $serviceProcesses) {
+        $servicePid = [int]$serviceProcess.ProcessId
+        if ($stoppedPids.Add($servicePid)) {
+            & taskkill /PID $servicePid /T /F *> $null
+            if ($LASTEXITCODE -ne 0) {
+                throw "Unable to stop the previous LocalScan process tree rooted at PID $servicePid."
             }
         }
     }
