@@ -73,6 +73,19 @@ cd workers && REDIS_URL=$REDIS_URL DATABASE_URL=$DATABASE_URL cargo run --bin di
 cd workers && REDIS_URL=$REDIS_URL DATABASE_URL=$DATABASE_URL cargo run --bin scoring-worker
 ```
 
+To stop all LocalScan sessions started from this checkout or sibling worktrees,
+including their worker process trees and Redis/Postgres containers, run:
+
+```powershell
+.\stop-localscan.ps1
+```
+
+Use `-SearchRoot` to limit cleanup to a specific parent folder:
+
+```powershell
+.\stop-localscan.ps1 -SearchRoot "C:\Desktop"
+```
+
 Then `POST /api/jobs/discover` with `{ "zip": "10940" }` to kick off a run,
 and open an SSE connection to `/api/jobs/{jobId}/stream` to watch progress.
 
