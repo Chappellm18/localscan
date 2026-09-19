@@ -281,6 +281,28 @@ a {
   transform-origin: center;
 }
 
+.map-water {
+  background: rgba(126, 177, 180, 0.28);
+  border-right: 1px solid rgba(25, 61, 46, 0.16);
+  height: 130%;
+  left: 43%;
+  position: absolute;
+  top: -15%;
+  transform: rotate(9deg);
+  width: 14%;
+}
+
+.map-block {
+  background: rgba(255, 255, 255, 0.42);
+  border: 1px solid rgba(25, 61, 46, 0.1);
+  position: absolute;
+  transform: rotate(-9deg);
+}
+
+.block-a { height: 25%; left: 8%; top: 9%; width: 23%; }
+.block-b { height: 21%; right: 8%; top: 16%; width: 24%; }
+.block-c { bottom: 8%; height: 26%; left: 19%; width: 27%; }
+
 .zip-boundary {
   border: 2px dashed rgba(25, 61, 46, 0.62);
   border-radius: 18px;
@@ -315,6 +337,18 @@ a {
 .road-a { left: -10%; top: 30%; }
 .road-b { left: -8%; top: 68%; transform: rotate(18deg); }
 .road-c { left: -9%; top: 48%; transform: rotate(82deg); }
+.road-d { left: 16%; top: 44%; transform: rotate(104deg); width: 90%; }
+
+.map-region {
+  color: rgba(25, 61, 46, 0.48);
+  font: 0.58rem "DM Mono", monospace;
+  letter-spacing: 0.12em;
+  position: absolute;
+  transform: rotate(-8deg);
+}
+
+.region-north { right: 14%; top: 10%; }
+.region-south { bottom: 13%; right: 17%; }
 
 .map-controls {
   display: flex;

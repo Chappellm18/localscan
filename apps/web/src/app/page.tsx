@@ -46,9 +46,13 @@ function mapBounds(results: Result[]) {
   return { minLat: 0, maxLat: 1, minLng: 0, maxLng: 1 };
 }
 
-function pinPosition(result: Result, index: number, results: Result[]) {
-  const bounds = mapBounds(results);
-  if (result.lat !== null && result.lng !== null && bounds.maxLat > 1) {
+function pinPosition(
+  result: Result,
+  index: number,
+  results: Result[],
+  bounds = mapBounds(results),
+) {
+  if (result.lat !== null && result.lng !== null) {
     return {
       left: `${((result.lng - bounds.minLng) / (bounds.maxLng - bounds.minLng)) * 100}%`,
       top: `${(1 - (result.lat - bounds.minLat) / (bounds.maxLat - bounds.minLat)) * 100}%`,
@@ -68,6 +72,7 @@ export default function Home() {
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const eventSourceRef = useRef<EventSource | null>(null);
+  const terminalStatusRef = useRef(false);
 
   useEffect(() => () => eventSourceRef.current?.close(), []);
 
@@ -76,6 +81,7 @@ export default function Home() {
     if (!response.ok) throw new Error("Results could not be loaded.");
     const data = (await response.json()) as { results: Result[] };
     setResults(data.results);
+    setSelectedId(data.results[0]?.id ?? null);
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -92,6 +98,7 @@ export default function Home() {
     setSelectedId(null);
     setJobId(null);
     eventSourceRef.current?.close();
+    terminalStatusRef.current = false;
     setIsSubmitting(true);
 
     try {
@@ -110,14 +117,23 @@ export default function Home() {
         const nextStatus = JSON.parse(message.data) as JobStatus;
         setStatus(nextStatus);
         if (nextStatus.status === "completed") {
+          terminalStatusRef.current = true;
           try {
             await loadResults(data.jobId);
           } catch (loadError) {
             setError(loadError instanceof Error ? loadError.message : "Results could not be loaded.");
           }
+        } else if (nextStatus.status === "failed") {
+          terminalStatusRef.current = true;
+          setError(nextStatus.error ?? "We couldn’t complete that search.");
         }
       });
-      eventSource.addEventListener("error", () => eventSource.close());
+      eventSource.addEventListener("error", () => {
+        if (!terminalStatusRef.current) {
+          setError("The search connection was interrupted. Please try again.");
+        }
+        eventSource.close();
+      });
     } catch (submissionError) {
       setError(submissionError instanceof Error ? submissionError.message : "We couldn’t start that search.");
     } finally {
@@ -168,7 +184,14 @@ export default function Home() {
             <div className="results-layout">
               <div className="interactive-map" aria-label="Interactive business map">
                 <div className="map-controls"><button onClick={() => setMapScale((scale) => Math.min(2, scale + 0.2))} aria-label="Zoom in">+</button><button onClick={() => setMapScale((scale) => Math.max(0.7, scale - 0.2))} aria-label="Zoom out">−</button></div>
-                <div className="map-surface" style={{ transform: `scale(${mapScale})` }}><div className="map-road road-a" /><div className="map-road road-b" /><div className="map-road road-c" /><div className="zip-boundary" aria-label={`ZIP code ${zip} area`} />{results.map((result, index) => <button key={result.id} className={`result-pin ${selectedId === result.id ? "selected" : ""}`} style={pinPosition(result, index, results)} onClick={() => setSelectedId(result.id)} aria-label={`View ${result.name}`}><span>{index + 1}</span></button>)}</div>
+                <div className="map-surface" style={{ transform: `scale(${mapScale})` }}>
+                  <div className="map-water" />
+                  <div className="map-block block-a" /><div className="map-block block-b" /><div className="map-block block-c" />
+                  <div className="map-road road-a" /><div className="map-road road-b" /><div className="map-road road-c" /><div className="map-road road-d" />
+                  <span className="map-region region-north">NORTH DISTRICT</span><span className="map-region region-south">DOWNTOWN</span>
+                  <div className="zip-boundary" aria-label={`ZIP code ${zip} area`} />
+                  {results.map((result, index) => <button key={result.id} className={`result-pin ${selectedId === result.id ? "selected" : ""}`} style={pinPosition(result, index, results)} onClick={() => setSelectedId(result.id)} aria-label={`View ${result.name}`}><span>{index + 1}</span></button>)}
+                </div>
                 <div className="map-location-label"><strong>{zip}</strong><span>ZIP code area</span></div><div className="map-caption"><span className="map-dot" /> Showing the full ZIP area · Select a pin for details</div>
               </div>
               <ResultPanel result={results.find((result) => result.id === selectedId) ?? results[0]} />
