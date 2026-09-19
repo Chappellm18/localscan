@@ -50,6 +50,7 @@ function Start-HiddenService {
 function Stop-PreviousServices {
     param([string]$LogRoot)
 
+    $stoppedPids = [System.Collections.Generic.List[int]]::new()
     Get-ChildItem -LiteralPath $LogRoot -Filter '*.pid' -ErrorAction SilentlyContinue | ForEach-Object {
         $pidText = Get-Content -LiteralPath $_.FullName -Raw -ErrorAction SilentlyContinue
         $servicePid = 0
@@ -60,11 +61,41 @@ function Stop-PreviousServices {
                 if ($LASTEXITCODE -ne 0) {
                     throw "Unable to stop the previous $($_.BaseName) process tree."
                 }
+                $stoppedPids.Add($servicePid)
             }
         }
     }
 
-    Start-Sleep -Milliseconds 250
+    for ($attempt = 1; $attempt -le 40 -and $stoppedPids.Count -gt 0; $attempt++) {
+        $runningPids = @($stoppedPids | Where-Object {
+            Get-Process -Id $_ -ErrorAction SilentlyContinue
+        })
+        if ($runningPids.Count -eq 0) {
+            break
+        }
+        Start-Sleep -Milliseconds 250
+    }
+}
+
+function Remove-BootLogs {
+    param([string]$LogRoot)
+
+    $logFiles = @(Get-ChildItem -LiteralPath $LogRoot -Filter '*.log' -File -ErrorAction SilentlyContinue)
+    foreach ($logFile in $logFiles) {
+        $removed = $false
+        for ($attempt = 1; $attempt -le 20; $attempt++) {
+            try {
+                Remove-Item -LiteralPath $logFile.FullName -Force -ErrorAction Stop
+                $removed = $true
+                break
+            } catch [System.IO.IOException] {
+                Start-Sleep -Milliseconds 250
+            }
+        }
+        if (-not $removed) {
+            throw "Unable to remove the previous log '$($logFile.FullName)'. A LocalScan process may still be using it."
+        }
+    }
 }
 
 if (-not (Test-Path -LiteralPath $ProjectRoot -PathType Container)) {
@@ -115,7 +146,7 @@ if ($machineList -notmatch '\btrue\b') {
 $bootRoot = Join-Path $ProjectRoot '.localscan\boot'
 New-Item -ItemType Directory -Force -Path $bootRoot | Out-Null
 Stop-PreviousServices -LogRoot $bootRoot
-Get-ChildItem -LiteralPath $bootRoot -Filter '*.log' -ErrorAction SilentlyContinue | Remove-Item -Force
+Remove-BootLogs -LogRoot $bootRoot
 Get-ChildItem -LiteralPath $bootRoot -Filter '*.pid' -ErrorAction SilentlyContinue | Remove-Item -Force
 
 Write-Host 'Starting LocalScan dependencies (Redis and Postgres)...' -ForegroundColor Cyan
