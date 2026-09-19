@@ -110,6 +110,9 @@ if ($schemaExists.Trim() -ne 't') {
         & podman compose -f (Join-Path $ProjectRoot 'docker-compose.yml') exec -T postgres psql -U localscan -d localscan -v ON_ERROR_STOP=1
 }
 
+Get-Content -LiteralPath (Join-Path $ProjectRoot 'db\migrations\002_add_discovery_job_id.sql') |
+    & podman compose -f (Join-Path $ProjectRoot 'docker-compose.yml') exec -T postgres psql -U localscan -d localscan -v ON_ERROR_STOP=1
+
 Open-ServiceTerminal -Title 'LocalScan - Web' -Command 'Set-Location apps\web; npm run dev'
 Open-ServiceTerminal -Title 'LocalScan - Discovery Worker' -Command "$workerEnvironment; Set-Location workers; cargo run --bin discovery-worker"
 Open-ServiceTerminal -Title 'LocalScan - Scoring Worker' -Command "$workerEnvironment; Set-Location workers; cargo run --bin scoring-worker"

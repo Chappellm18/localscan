@@ -37,6 +37,7 @@ docker compose up -d          # starts redis + postgres
 
 # apply the schema
 psql "$DATABASE_URL" -f db/migrations/001_init.sql
+psql "$DATABASE_URL" -f db/migrations/002_add_discovery_job_id.sql
 
 # frontend deps
 cd apps/web && npm install && cd ../..
