@@ -7,7 +7,13 @@ import { getRedis } from "@/lib/redis";
 // returns the job_id immediately so the frontend can open an SSE
 // connection to /api/jobs/{jobId}/stream without waiting for the crawl.
 export async function POST(req: NextRequest) {
-  const body = await req.json();
+  let body: any;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Request body must be valid JSON." }, { status: 400 });
+  }
+
   const { zip, radiusMiles = null, categoryFilter = null } = body ?? {};
 
   if (typeof zip !== "string" || !/^\d{5}$/.test(zip)) {
@@ -29,8 +35,19 @@ export async function POST(req: NextRequest) {
     enqueued_at: new Date().toISOString(),
   };
 
-  const redis = getRedis();
-  await redis.xadd("jobs:discovery", "*", "payload", JSON.stringify(payload));
+  try {
+    const redis = getRedis();
+    await redis.xadd("jobs:discovery", "*", "payload", JSON.stringify(payload));
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error:
+          "Could not enqueue the discovery job. Make sure Redis is running and the REDIS_URL is reachable.",
+        details: error instanceof Error ? error.message : "Unknown Redis error",
+      },
+      { status: 503 },
+    );
+  }
 
   return NextResponse.json({ jobId }, { status: 202 });
 }

@@ -57,6 +57,11 @@ recent output, so no separate command windows are required:
 .\start-localscan.ps1 -ProjectRoot "C:\path\to\localscan"
 ```
 
+The launcher pins Next.js to port `3000`, so the dashboard at
+`http://localhost:3000/boot` and the main site at `http://localhost:3000/`
+always use the same server. If another process already owns port 3000, stop
+that process before starting LocalScan.
+
 The individual commands can still be run manually when needed:
 
 ```bash
