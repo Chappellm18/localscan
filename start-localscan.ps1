@@ -131,6 +131,15 @@ if (-not (Test-Path -LiteralPath $envFile -PathType Leaf)) {
     throw "Missing $envFile. Copy .env.example to .env and adjust it before starting LocalScan."
 }
 
+$webDependencyMarker = Join-Path $ProjectRoot 'apps\web\node_modules\leaflet\dist\leaflet.css'
+if (-not (Test-Path -LiteralPath $webDependencyMarker -PathType Leaf)) {
+    Write-Host 'Installing web dependencies from package-lock.json...' -ForegroundColor Cyan
+    & npm ci --prefix (Join-Path $ProjectRoot 'apps\web')
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Web dependency installation failed. Run "npm ci --prefix apps\web" in the project folder for details.'
+    }
+}
+
 $axeFile = Join-Path $ProjectRoot 'workers\crates\scoring\assets\axe.min.js'
 if (-not (Test-Path -LiteralPath $axeFile) -or (Get-Item -LiteralPath $axeFile).Length -lt 100000) {
     throw "Missing the axe-core bundle at '$axeFile'. Run: npm install --no-save --prefix apps\\web axe-core; Copy-Item apps\\web\\node_modules\\axe-core\\axe.min.js workers\\crates\\scoring\\assets\\axe.min.js -Force"
