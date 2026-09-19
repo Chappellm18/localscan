@@ -1,6 +1,12 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
+
+const BusinessMap = dynamic(() => import("./components/BusinessMap"), {
+  ssr: false,
+  loading: () => <div className="interactive-map map-loading">Loading OpenStreetMap…</div>,
+});
 
 type JobStatus = { status?: string; [key: string]: string | undefined };
 type Result = {
@@ -26,41 +32,6 @@ function scoreLabel(score: number | null) {
   return score === null ? "Not scored" : `${Math.round(score)}/100`;
 }
 
-function mapBounds(results: Result[]) {
-  const located = results.filter(
-    (candidate): candidate is Result & { lat: number; lng: number } =>
-      candidate.lat !== null && candidate.lng !== null,
-  );
-  if (located.length) {
-    const latitudes = located.map((candidate) => candidate.lat);
-    const longitudes = located.map((candidate) => candidate.lng);
-    const latRange = Math.max(Math.max(...latitudes) - Math.min(...latitudes), 0.01);
-    const lngRange = Math.max(Math.max(...longitudes) - Math.min(...longitudes), 0.01);
-    return {
-      minLat: Math.min(...latitudes) - latRange * 0.2,
-      maxLat: Math.max(...latitudes) + latRange * 0.2,
-      minLng: Math.min(...longitudes) - lngRange * 0.2,
-      maxLng: Math.max(...longitudes) + lngRange * 0.2,
-    };
-  }
-  return { minLat: 0, maxLat: 1, minLng: 0, maxLng: 1 };
-}
-
-function pinPosition(
-  result: Result,
-  index: number,
-  results: Result[],
-  bounds = mapBounds(results),
-) {
-  if (result.lat !== null && result.lng !== null) {
-    return {
-      left: `${((result.lng - bounds.minLng) / (bounds.maxLng - bounds.minLng)) * 100}%`,
-      top: `${(1 - (result.lat - bounds.minLat) / (bounds.maxLat - bounds.minLat)) * 100}%`,
-    };
-  }
-  return { left: `${18 + ((index * 31) % 68)}%`, top: `${22 + ((index * 47) % 58)}%` };
-}
-
 export default function Home() {
   const [zip, setZip] = useState("");
   const [jobId, setJobId] = useState<string | null>(null);
@@ -68,7 +39,6 @@ export default function Home() {
   const [results, setResults] = useState<Result[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [view, setView] = useState<ViewMode>("map");
-  const [mapScale, setMapScale] = useState(1);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const eventSourceRef = useRef<EventSource | null>(null);
@@ -182,17 +152,13 @@ export default function Home() {
           {error && <p className="form-message error" role="alert">{error}</p>}
           {view === "map" ? (
             <div className="results-layout">
-              <div className="interactive-map" aria-label="Interactive business map">
-                <div className="map-controls"><button onClick={() => setMapScale((scale) => Math.min(2, scale + 0.2))} aria-label="Zoom in">+</button><button onClick={() => setMapScale((scale) => Math.max(0.7, scale - 0.2))} aria-label="Zoom out">−</button></div>
-                <div className="map-surface" style={{ transform: `scale(${mapScale})` }}>
-                  <div className="map-water" />
-                  <div className="map-block block-a" /><div className="map-block block-b" /><div className="map-block block-c" />
-                  <div className="map-road road-a" /><div className="map-road road-b" /><div className="map-road road-c" /><div className="map-road road-d" />
-                  <span className="map-region region-north">NORTH DISTRICT</span><span className="map-region region-south">DOWNTOWN</span>
-                  <div className="zip-boundary" aria-label={`ZIP code ${zip} area`} />
-                  {results.map((result, index) => <button key={result.id} className={`result-pin ${selectedId === result.id ? "selected" : ""}`} style={pinPosition(result, index, results)} onClick={() => setSelectedId(result.id)} aria-label={`View ${result.name}`}><span>{index + 1}</span></button>)}
-                </div>
-                <div className="map-location-label"><strong>{zip}</strong><span>ZIP code area</span></div><div className="map-caption"><span className="map-dot" /> Showing the full ZIP area · Select a pin for details</div>
+              <div aria-label="Interactive OpenStreetMap business map">
+                <BusinessMap
+                  results={results}
+                  selectedId={selectedId}
+                  onSelect={setSelectedId}
+                  zip={zip}
+                />
               </div>
               <ResultPanel result={results.find((result) => result.id === selectedId) ?? results[0]} />
             </div>
