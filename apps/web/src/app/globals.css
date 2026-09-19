@@ -46,6 +46,112 @@ a {
   padding: 28px 0;
 }
 
+.boot-dashboard {
+  margin: 0 auto;
+  max-width: 1500px;
+  padding: 5vh 5vw;
+}
+
+.boot-header {
+  align-items: end;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  padding-bottom: 34px;
+}
+
+.boot-header h1 {
+  font-size: clamp(2.7rem, 5vw, 5rem);
+}
+
+.boot-subtitle {
+  color: var(--muted);
+  margin: 22px 0 0;
+}
+
+.boot-home-link {
+  border: 1px solid var(--line);
+  font: 0.7rem "DM Mono", monospace;
+  padding: 12px 15px;
+  text-transform: uppercase;
+}
+
+.service-grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 28px;
+}
+
+.service-card {
+  background: #15261f;
+  color: #f7f5ee;
+  min-height: 260px;
+  padding: 20px;
+}
+
+.service-card-header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.service-card-header > div {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+
+.service-dot {
+  background: #a24235;
+  border-radius: 50%;
+  height: 9px;
+  width: 9px;
+}
+
+.service-dot.online {
+  background: var(--lime);
+  box-shadow: 0 0 0 4px rgba(213, 237, 104, 0.14);
+}
+
+.service-status {
+  color: rgba(255, 255, 255, 0.5);
+  font: 0.65rem "DM Mono", monospace;
+  text-transform: uppercase;
+}
+
+.online-text {
+  color: var(--lime);
+}
+
+.service-card pre {
+  color: rgba(255, 255, 255, 0.72);
+  font: 0.68rem/1.5 "DM Mono", monospace;
+  margin: 18px 0 0;
+  max-height: 215px;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
+.service-card details {
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
+  margin-top: 15px;
+  padding-top: 12px;
+}
+
+.service-card summary {
+  color: #ffad9f;
+  cursor: pointer;
+  font: 0.65rem "DM Mono", monospace;
+  text-transform: uppercase;
+}
+
+.boot-updated {
+  color: var(--muted);
+  font: 0.65rem "DM Mono", monospace;
+  margin-top: 18px;
+}
+
 .brand {
   align-items: center;
   display: flex;
@@ -507,6 +613,20 @@ h1 em {
 }
 
 @media (max-width: 760px) {
+  .boot-dashboard {
+    padding: 4vh 7vw;
+  }
+
+  .boot-header {
+    align-items: start;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .service-grid {
+    grid-template-columns: 1fr;
+  }
+
   .landing-page {
     padding: 0 7vw;
   }

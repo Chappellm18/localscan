@@ -48,7 +48,16 @@ cd workers && cargo build && cd ..
 
 ## Running everything locally
 
-Four processes, each in its own terminal:
+On Windows, the boot script starts the web app, workers, and dependency log
+stream as hidden processes and opens a single-screen dashboard at
+`http://localhost:3000/boot`. The dashboard shows live service status and
+recent output, so no separate command windows are required:
+
+```powershell
+.\start-localscan.ps1 -ProjectRoot "C:\path\to\localscan"
+```
+
+The individual commands can still be run manually when needed:
 
 ```bash
 # 1. dependencies (if not already running)
