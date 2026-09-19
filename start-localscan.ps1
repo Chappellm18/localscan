@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$ProjectRoot = "C:\Desktop\localscan"
+    [string]$ProjectRoot = $PSScriptRoot
 )
 
 $ErrorActionPreference = 'Stop'
@@ -117,6 +117,11 @@ New-Item -ItemType Directory -Force -Path $bootRoot | Out-Null
 Stop-PreviousServices -LogRoot $bootRoot
 Get-ChildItem -LiteralPath $bootRoot -Filter '*.log' -ErrorAction SilentlyContinue | Remove-Item -Force
 Get-ChildItem -LiteralPath $bootRoot -Filter '*.pid' -ErrorAction SilentlyContinue | Remove-Item -Force
+
+$webBuildRoot = Join-Path $ProjectRoot 'apps\web\.next'
+if (Test-Path -LiteralPath $webBuildRoot -PathType Container) {
+    Remove-Item -LiteralPath $webBuildRoot -Recurse -Force
+}
 
 Write-Host 'Starting LocalScan dependencies (Redis and Postgres)...' -ForegroundColor Cyan
 $composeFile = Join-Path $ProjectRoot 'docker-compose.yml'
