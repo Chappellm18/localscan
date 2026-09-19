@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { execFile } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
@@ -25,6 +26,24 @@ function isRunning(pidPath: string) {
   }
 }
 
+function readPid(pidPath: string) {
+  if (!existsSync(pidPath)) return null;
+  const pid = Number.parseInt(readFileSync(pidPath, "utf8").trim(), 10);
+  return Number.isInteger(pid) ? pid : null;
+}
+
+function stopProcess(pid: number) {
+  return new Promise<void>((resolve, reject) => {
+    execFile("taskkill", ["/PID", String(pid), "/T", "/F"], (error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve();
+    });
+  });
+}
+
 export async function GET() {
   const bootRoot = path.resolve(process.cwd(), "..", "..", ".localscan", "boot");
   return NextResponse.json({
@@ -35,5 +54,46 @@ export async function GET() {
       error: readText(path.join(bootRoot, service.errorLog)),
     })),
     updatedAt: new Date().toISOString(),
+  });
+}
+
+export async function POST() {
+  const bootRoot = path.resolve(process.cwd(), "..", "..", ".localscan", "boot");
+  const processes = services
+    .map((service) => ({
+      id: service.id,
+      pid: readPid(path.join(bootRoot, `${service.id}.pid`)),
+    }))
+    .filter((service): service is { id: string; pid: number } => service.pid !== null);
+
+  const results = [];
+  for (const service of processes.filter((service) => service.id !== "web")) {
+    try {
+      await stopProcess(service.pid);
+      results.push({ id: service.id, stopped: true });
+    } catch (error) {
+      results.push({
+        id: service.id,
+        stopped: false,
+        error: error instanceof Error ? error.message : "Unable to stop process",
+      });
+    }
+  }
+
+  const webProcess = processes.find((service) => service.id === "web");
+  if (webProcess) {
+    setTimeout(() => {
+      void stopProcess(webProcess.pid).catch((error) => {
+        console.error(`Unable to stop web process ${webProcess.pid}:`, error);
+      });
+    }, 250);
+    results.push({ id: webProcess.id, stopped: true });
+  }
+
+  return NextResponse.json({
+    stopped: results.filter((result) => result.stopped).map((result) => result.id),
+    failed: results
+      .filter((result) => !result.stopped)
+      .map(({ id, error }) => ({ id, error })),
   });
 }

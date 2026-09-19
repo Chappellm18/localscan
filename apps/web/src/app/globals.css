@@ -76,6 +76,33 @@ a {
   text-transform: uppercase;
 }
 
+.boot-actions {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+
+.boot-stop-button {
+  background: var(--green);
+  border: 1px solid var(--green);
+  color: var(--lime);
+  cursor: pointer;
+  font: 700 0.7rem "DM Mono", monospace;
+  padding: 12px 15px;
+  text-transform: uppercase;
+}
+
+.boot-stop-button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.boot-stop-message {
+  color: var(--green);
+  font: 0.7rem "DM Mono", monospace;
+  margin-top: 10px;
+}
+
 .service-grid {
   display: grid;
   gap: 18px;
@@ -621,6 +648,17 @@ h1 em {
     align-items: start;
     flex-direction: column;
     gap: 24px;
+  }
+
+  .boot-actions {
+    align-items: stretch;
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .boot-home-link,
+  .boot-stop-button {
+    text-align: center;
   }
 
   .service-grid {

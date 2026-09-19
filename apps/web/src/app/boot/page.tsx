@@ -13,6 +13,8 @@ type Service = {
 export default function BootDashboard() {
   const [services, setServices] = useState<Service[]>([]);
   const [updatedAt, setUpdatedAt] = useState("");
+  const [stopping, setStopping] = useState(false);
+  const [stopMessage, setStopMessage] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -33,6 +35,30 @@ export default function BootDashboard() {
     };
   }, []);
 
+  const stopAllSessions = async () => {
+    if (!window.confirm("Stop all LocalScan sessions so you can reboot?")) return;
+
+    setStopping(true);
+    setStopMessage("");
+    try {
+      const response = await fetch("/api/boot", { method: "POST" });
+      const data = (await response.json()) as {
+        stopped: string[];
+        failed: { id: string; error: string }[];
+      };
+      if (!response.ok) throw new Error("The sessions could not be stopped.");
+      setStopMessage(
+        data.failed.length === 0
+          ? "All sessions stopped. You can reboot now."
+          : `Stopped ${data.stopped.length} sessions; ${data.failed.length} could not be stopped.`,
+      );
+    } catch (error) {
+      setStopMessage(error instanceof Error ? error.message : "The sessions could not be stopped.");
+    } finally {
+      setStopping(false);
+    }
+  };
+
   return (
     <main className="boot-dashboard">
       <header className="boot-header">
@@ -41,7 +67,12 @@ export default function BootDashboard() {
           <h1>Everything in <em>one screen.</em></h1>
           <p className="boot-subtitle">Service windows are hidden. This dashboard refreshes their output automatically.</p>
         </div>
-        <a className="boot-home-link" href="/">Open LocalScan</a>
+        <div className="boot-actions">
+          <a className="boot-home-link" href="/">Open LocalScan</a>
+          <button className="boot-stop-button" disabled={stopping} onClick={stopAllSessions} type="button">
+            {stopping ? "Stopping sessions…" : "Kill all sessions"}
+          </button>
+        </div>
       </header>
       <div className="service-grid">
         {services.map((service) => (
@@ -56,6 +87,7 @@ export default function BootDashboard() {
         ))}
       </div>
       <p className="boot-updated">Last checked {updatedAt ? new Date(updatedAt).toLocaleTimeString() : "—"}</p>
+      {stopMessage && <p className="boot-stop-message" role="status">{stopMessage}</p>}
     </main>
   );
 }
