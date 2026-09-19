@@ -1,4 +1,5 @@
 .env
+.localscan/
 node_modules/
 .next/
 target/

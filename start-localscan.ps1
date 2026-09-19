@@ -30,14 +30,21 @@ function Assert-Command {
     }
 }
 
-function Open-ServiceTerminal {
+function Start-HiddenService {
     param(
-        [string]$Title,
+        [string]$Name,
         [string]$Command
     )
 
-    $terminalCommand = "`$host.UI.RawUI.WindowTitle = '$Title'; Set-Location -LiteralPath '$ProjectRoot'; $Command"
-    Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoExit', '-ExecutionPolicy', 'Bypass', '-Command', $terminalCommand) | Out-Null
+    $logRoot = Join-Path $ProjectRoot '.localscan\boot'
+    $logPath = Join-Path $logRoot "$Name.log"
+    $errorPath = Join-Path $logRoot "$Name.error.log"
+    $pidPath = Join-Path $logRoot "$Name.pid"
+    $serviceCommand = "Set-Location -LiteralPath '$ProjectRoot'; $Command"
+    $process = Start-Process -FilePath 'powershell.exe' -WindowStyle Hidden -WorkingDirectory $ProjectRoot `
+        -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', $serviceCommand) `
+        -RedirectStandardOutput $logPath -RedirectStandardError $errorPath -PassThru
+    Set-Content -LiteralPath $pidPath -Value $process.Id -Encoding ascii
 }
 
 if (-not (Test-Path -LiteralPath $ProjectRoot -PathType Container)) {
@@ -110,13 +117,19 @@ if ($schemaExists.Trim() -ne 't') {
         & podman compose -f (Join-Path $ProjectRoot 'docker-compose.yml') exec -T postgres psql -U localscan -d localscan -v ON_ERROR_STOP=1
 }
 
-Open-ServiceTerminal -Title 'LocalScan - Web' -Command 'Set-Location apps\web; npm run dev'
-Open-ServiceTerminal -Title 'LocalScan - Discovery Worker' -Command "$workerEnvironment; Set-Location workers; cargo run --bin discovery-worker"
-Open-ServiceTerminal -Title 'LocalScan - Scoring Worker' -Command "$workerEnvironment; Set-Location workers; cargo run --bin scoring-worker"
-Open-ServiceTerminal -Title 'LocalScan - Dependencies' -Command 'podman compose logs --follow'
+$bootRoot = Join-Path $ProjectRoot '.localscan\boot'
+New-Item -ItemType Directory -Force -Path $bootRoot | Out-Null
+Get-ChildItem -LiteralPath $bootRoot -Filter '*.log' -ErrorAction SilentlyContinue | Remove-Item -Force
+Get-ChildItem -LiteralPath $bootRoot -Filter '*.pid' -ErrorAction SilentlyContinue | Remove-Item -Force
+
+Start-HiddenService -Name 'web' -Command 'Set-Location apps\web; npm run dev'
+Start-HiddenService -Name 'discovery' -Command "$workerEnvironment; Set-Location workers; cargo run --bin discovery-worker"
+Start-HiddenService -Name 'scoring' -Command "$workerEnvironment; Set-Location workers; cargo run --bin scoring-worker"
+Start-HiddenService -Name 'dependencies' -Command 'podman compose logs --follow'
 
 Write-Host ''
 Write-Host 'LocalScan is starting.' -ForegroundColor Green
-Write-Host 'Dependencies are running in Podman; four PowerShell windows were opened for their logs, the web app, and the workers.'
-Write-Host 'Open http://localhost:3000 after the web terminal reports Ready.'
+Write-Host 'The web app, workers, and dependency logs are running in hidden processes.'
+Write-Host 'Opening the single-screen dashboard at http://localhost:3000/boot.'
+Start-Process 'http://localhost:3000/boot'
 Write-Host 'To stop dependencies later: podman compose -f "{0}" down' (Join-Path $ProjectRoot 'docker-compose.yml')
