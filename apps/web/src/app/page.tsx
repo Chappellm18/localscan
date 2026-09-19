@@ -2,27 +2,68 @@
 
 import { FormEvent, useEffect, useRef, useState } from "react";
 
-type JobStatus = {
-  status?: string;
-  [key: string]: string | undefined;
+type JobStatus = { status?: string; [key: string]: string | undefined };
+type Result = {
+  id: string;
+  name: string;
+  address: string | null;
+  category: string | null;
+  phone: string | null;
+  website_url: string | null;
+  lat: number | null;
+  lng: number | null;
+  overall_score: number | null;
+  accessibility_score: number | null;
 };
+
+type ViewMode = "map" | "list";
+
+function scoreLabel(score: number | null) {
+  return score === null ? "Not scored" : `${Math.round(score)}/100`;
+}
+
+function pinPosition(result: Result, index: number, results: Result[]) {
+  const located = results.filter(
+    (candidate): candidate is Result & { lat: number; lng: number } =>
+      candidate.lat !== null && candidate.lng !== null,
+  );
+  if (result.lat !== null && result.lng !== null && located.length > 1) {
+    const latitudes = located.map((candidate) => candidate.lat);
+    const longitudes = located.map((candidate) => candidate.lng);
+    const latRange = Math.max(...latitudes) - Math.min(...latitudes) || 1;
+    const lngRange = Math.max(...longitudes) - Math.min(...longitudes) || 1;
+    return {
+      left: `${14 + ((result.lng - Math.min(...longitudes)) / lngRange) * 72}%`,
+      top: `${18 + (1 - (result.lat - Math.min(...latitudes)) / latRange) * 64}%`,
+    };
+  }
+  return { left: `${18 + ((index * 31) % 68)}%`, top: `${22 + ((index * 47) % 58)}%` };
+}
 
 export default function Home() {
   const [zip, setZip] = useState("");
   const [jobId, setJobId] = useState<string | null>(null);
   const [status, setStatus] = useState<JobStatus | null>(null);
+  const [results, setResults] = useState<Result[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [view, setView] = useState<ViewMode>("map");
+  const [mapScale, setMapScale] = useState(1);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const eventSourceRef = useRef<EventSource | null>(null);
 
-  useEffect(() => {
-    return () => eventSourceRef.current?.close();
-  }, []);
+  useEffect(() => () => eventSourceRef.current?.close(), []);
+
+  async function loadResults(id: string) {
+    const response = await fetch(`/api/jobs/${id}/results`);
+    if (!response.ok) throw new Error("Results could not be loaded.");
+    const data = (await response.json()) as { results: Result[] };
+    setResults(data.results);
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const normalizedZip = zip.trim();
-
     if (!/^\d{5}$/.test(normalizedZip)) {
       setError("Enter a valid 5-digit ZIP code.");
       return;
@@ -30,6 +71,8 @@ export default function Home() {
 
     setError("");
     setStatus(null);
+    setResults([]);
+    setSelectedId(null);
     setJobId(null);
     eventSourceRef.current?.close();
     setIsSubmitting(true);
@@ -41,128 +84,91 @@ export default function Home() {
         body: JSON.stringify({ zip: normalizedZip }),
       });
       const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "We couldn’t start that search.");
-      }
+      if (!response.ok) throw new Error(data.error || "We couldn’t start that search.");
 
       setJobId(data.jobId);
       const eventSource = new EventSource(`/api/jobs/${data.jobId}/stream`);
       eventSourceRef.current = eventSource;
-      eventSource.addEventListener("status", (message) => {
-        setStatus(JSON.parse(message.data) as JobStatus);
+      eventSource.addEventListener("status", async (message) => {
+        const nextStatus = JSON.parse(message.data) as JobStatus;
+        setStatus(nextStatus);
+        if (nextStatus.status === "completed") {
+          try {
+            await loadResults(data.jobId);
+          } catch (loadError) {
+            setError(loadError instanceof Error ? loadError.message : "Results could not be loaded.");
+          }
+        }
       });
-      eventSource.addEventListener("error", () => {
-        eventSource.close();
-      });
+      eventSource.addEventListener("error", () => eventSource.close());
     } catch (submissionError) {
-      setError(
-        submissionError instanceof Error
-          ? submissionError.message
-          : "We couldn’t start that search.",
-      );
+      setError(submissionError instanceof Error ? submissionError.message : "We couldn’t start that search.");
     } finally {
       setIsSubmitting(false);
     }
   }
 
-  const statusLabel =
-    status?.status === "completed"
-      ? "Search complete"
-      : status?.status === "failed"
-        ? "Search couldn’t be completed"
-        : "Search queued";
+  const isReady = status?.status === "completed";
+  const statusLabel = isReady
+    ? "Search complete"
+    : status?.status === "failed"
+      ? "Search couldn’t be completed"
+      : "Search queued";
 
   return (
     <main className="landing-page">
       <nav className="site-nav" aria-label="Main navigation">
-        <a className="brand" href="/" aria-label="LocalScan home">
-          <span className="brand-mark" aria-hidden="true">
-            L
-          </span>
-          LocalScan
-        </a>
+        <a className="brand" href="/" aria-label="LocalScan home"><span className="brand-mark" aria-hidden="true">L</span>LocalScan</a>
         <span className="nav-note">Local intelligence, made simple.</span>
       </nav>
 
-      <section className="hero" aria-labelledby="hero-title">
-        <div className="hero-copy">
-          <p className="eyebrow">Discover what&apos;s nearby</p>
-          <h1 id="hero-title">
-            Find the businesses
-            <br />
-            <em>that matter.</em>
-          </h1>
-          <p className="hero-description">
-            Enter a ZIP code to uncover local businesses and get a clear view
-            of their online presence.
-          </p>
-
-          <form className="search-form" onSubmit={handleSubmit} noValidate>
-            <label htmlFor="zip">Search by ZIP code</label>
-            <div className="input-row">
-              <input
-                id="zip"
-                inputMode="numeric"
-                maxLength={5}
-                name="zip"
-                onChange={(event) => {
-                  setZip(event.target.value.replace(/\D/g, ""));
-                  setError("");
-                }}
-                placeholder="e.g. 10001"
-                value={zip}
-                aria-describedby={error ? "zip-error" : undefined}
-              />
-              <button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Searching…" : "Search area"}
-                {!isSubmitting && <span aria-hidden="true">→</span>}
-              </button>
-            </div>
-            {error && (
-              <p className="form-message error" id="zip-error" role="alert">
-                {error}
-              </p>
-            )}
-          </form>
-
-          {jobId && (
-            <div className="search-result" role="status" aria-live="polite">
-              <span className="pulse" aria-hidden="true" />
-              <div>
-                <strong>{statusLabel}</strong>
-                <p>
-                  {status?.status === "completed"
-                    ? "Your local business results are ready."
-                    : "We’re gathering local business information now."}
-                </p>
+      {!isReady ? (
+        <section className="hero" aria-labelledby="hero-title">
+          <div className="hero-copy">
+            <p className="eyebrow">Discover what&apos;s nearby</p>
+            <h1 id="hero-title">Find the businesses<br /><em>that matter.</em></h1>
+            <p className="hero-description">Enter a ZIP code to uncover local businesses and get a clear view of their online presence.</p>
+            <form className="search-form" onSubmit={handleSubmit} noValidate>
+              <label htmlFor="zip">Search by ZIP code</label>
+              <div className="input-row">
+                <input id="zip" inputMode="numeric" maxLength={5} name="zip" onChange={(event) => { setZip(event.target.value.replace(/\D/g, "")); setError(""); }} placeholder="e.g. 10001" value={zip} aria-describedby={error ? "zip-error" : undefined} />
+                <button type="submit" disabled={isSubmitting}>{isSubmitting ? "Searching…" : "Search area"}{!isSubmitting && <span aria-hidden="true">→</span>}</button>
               </div>
-            </div>
-          )}
-        </div>
-
-        <div className="hero-art" aria-hidden="true">
-          <div className="art-orbit orbit-one" />
-          <div className="art-orbit orbit-two" />
-          <div className="map-card">
-            <span className="map-label label-top">LOCAL</span>
-            <span className="map-label label-bottom">SCAN</span>
-            <div className="map-grid" />
-            <div className="map-pin">
-              <span />
-            </div>
-            <div className="map-card-footer">
-              <span className="map-dot" />
-              <span>Ready to explore</span>
-            </div>
+              {error && <p className="form-message error" id="zip-error" role="alert">{error}</p>}
+            </form>
+            {jobId && <div className="search-result" role="status" aria-live="polite"><span className="pulse" aria-hidden="true" /><div><strong>{statusLabel}</strong><p>We’re gathering local business information now.</p></div></div>}
           </div>
-        </div>
-      </section>
-
-      <footer className="site-footer">
-        <span>Built for better local discovery.</span>
-        <span>One ZIP code at a time.</span>
-      </footer>
+          <div className="hero-art" aria-hidden="true"><div className="art-orbit orbit-one" /><div className="art-orbit orbit-two" /><div className="map-card"><span className="map-label label-top">LOCAL</span><span className="map-label label-bottom">SCAN</span><div className="map-grid" /><div className="map-pin"><span /></div><div className="map-card-footer"><span className="map-dot" /><span>Ready to explore</span></div></div></div>
+        </section>
+      ) : (
+        <section className="results-page" aria-labelledby="results-title">
+          <div className="results-heading">
+            <div><p className="eyebrow">Search results · {zip}</p><h1 id="results-title">Your local <em>landscape.</em></h1><p className="results-summary">{results.length} businesses found near this ZIP code.</p></div>
+            <div className="view-toggle" role="group" aria-label="Results view"><button className={view === "map" ? "active" : ""} onClick={() => setView("map")}>Map view</button><button className={view === "list" ? "active" : ""} onClick={() => setView("list")}>List view</button></div>
+          </div>
+          {error && <p className="form-message error" role="alert">{error}</p>}
+          {view === "map" ? (
+            <div className="results-layout">
+              <div className="interactive-map" aria-label="Interactive business map">
+                <div className="map-controls"><button onClick={() => setMapScale((scale) => Math.min(2, scale + 0.2))} aria-label="Zoom in">+</button><button onClick={() => setMapScale((scale) => Math.max(0.7, scale - 0.2))} aria-label="Zoom out">−</button></div>
+                <div className="map-surface" style={{ transform: `scale(${mapScale})` }}><div className="map-road road-a" /><div className="map-road road-b" /><div className="map-road road-c" />{results.map((result, index) => <button key={result.id} className={`result-pin ${selectedId === result.id ? "selected" : ""}`} style={pinPosition(result, index, results)} onClick={() => setSelectedId(result.id)} aria-label={`View ${result.name}`}><span>{index + 1}</span></button>)}</div>
+                <div className="map-caption"><span className="map-dot" /> Select a pin to see business details</div>
+              </div>
+              <ResultPanel result={results.find((result) => result.id === selectedId) ?? results[0]} />
+            </div>
+          ) : <div className="results-list">{results.map((result, index) => <ResultCard key={result.id} result={result} index={index} />)}</div>}
+        </section>
+      )}
+      <footer className="site-footer"><span>Built for better local discovery.</span><span>One ZIP code at a time.</span></footer>
     </main>
   );
+}
+
+function ResultPanel({ result }: { result?: Result }) {
+  if (!result) return <aside className="result-panel empty"><strong>No businesses yet</strong><p>Results will appear here as they are discovered.</p></aside>;
+  return <aside className="result-panel"><p className="card-kicker">{result.category ?? "Local business"}</p><h2>{result.name}</h2><p className="result-address">{result.address ?? "Address unavailable"}</p><div className="score-large">{scoreLabel(result.overall_score)}</div><p className="score-note">Overall online presence score</p>{result.website_url && <a className="website-link" href={result.website_url} target="_blank" rel="noreferrer">Visit website <span>↗</span></a>}</aside>;
+}
+
+function ResultCard({ result, index }: { result: Result; index: number }) {
+  return <article className="result-card"><span className="list-number">{String(index + 1).padStart(2, "0")}</span><div className="result-card-copy"><p className="card-kicker">{result.category ?? "Local business"}</p><h2>{result.name}</h2><p className="result-address">{result.address ?? "Address unavailable"}</p></div><div className="list-score"><strong>{scoreLabel(result.overall_score)}</strong><span>overall score</span></div></article>;
 }

@@ -19,6 +19,8 @@ pub struct Business {
     pub category: Option<String>,
     pub phone: Option<String>,
     pub website_url: Option<String>,
+    pub lat: Option<f64>,
+    pub lng: Option<f64>,
     pub source: String,
     pub source_id: String,
 }
@@ -44,6 +46,8 @@ pub fn normalize(candidates: Vec<RawCandidate>) -> Result<Vec<Business>> {
             category: c.raw_fields.get("category").and_then(|v| v.as_str()).map(String::from),
             phone: c.raw_fields.get("phone").and_then(|v| v.as_str()).map(String::from),
             website_url: c.raw_fields.get("website_url").and_then(|v| v.as_str()).map(String::from),
+            lat: c.raw_fields.get("lat").and_then(|v| v.as_f64()),
+            lng: c.raw_fields.get("lng").and_then(|v| v.as_f64()),
             source: c.source,
             source_id: c.source_id,
         });

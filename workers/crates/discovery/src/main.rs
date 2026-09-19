@@ -196,19 +196,25 @@ async fn db_upsert_business(
     // updates existing rows rather than duplicating them.
     let rec = sqlx::query!(
         r#"
-        INSERT INTO businesses (name, address, zip, category, phone, website_url, source, source_id, last_fetched_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now())
+        INSERT INTO businesses (discovery_job_id, name, address, zip, lat, lng, category, phone, website_url, source, source_id, last_fetched_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now())
         ON CONFLICT (source, source_id)
         DO UPDATE SET
+            discovery_job_id = EXCLUDED.discovery_job_id,
             name = EXCLUDED.name,
             address = EXCLUDED.address,
+            lat = EXCLUDED.lat,
+            lng = EXCLUDED.lng,
             website_url = EXCLUDED.website_url,
             last_fetched_at = now()
         RETURNING id
         "#,
+        job.job_id,
         biz.name,
         biz.address,
         job.zip,
+        biz.lat,
+        biz.lng,
         biz.category,
         biz.phone,
         biz.website_url,

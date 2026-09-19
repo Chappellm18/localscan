@@ -33,6 +33,8 @@ struct OverpassResponse {
 #[derive(Debug, Deserialize)]
 struct OverpassElement {
     id: u64,
+    lat: Option<f64>,
+    lon: Option<f64>,
     tags: Option<HashMap<String, String>>,
 }
 
@@ -145,6 +147,8 @@ out body;"#
                     "category": category,
                     "phone": phone,
                     "website_url": website_url,
+                    "lat": el.lat,
+                    "lng": el.lon,
                 }),
             })
         })

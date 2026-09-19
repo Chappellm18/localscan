@@ -7,6 +7,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 CREATE TABLE businesses (
     id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    discovery_job_id UUID,
     name            TEXT NOT NULL,
     address         TEXT,
     zip             TEXT NOT NULL,
@@ -23,6 +24,7 @@ CREATE TABLE businesses (
 );
 
 CREATE INDEX idx_businesses_zip ON businesses (zip);
+CREATE INDEX idx_businesses_discovery_job_id ON businesses (discovery_job_id);
 
 CREATE TABLE site_scores (
     id                   UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
