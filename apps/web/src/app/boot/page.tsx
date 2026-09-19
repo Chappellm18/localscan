@@ -13,18 +13,28 @@ type Service = {
 export default function BootDashboard() {
   const [services, setServices] = useState<Service[]>([]);
   const [updatedAt, setUpdatedAt] = useState("");
+  const [refreshError, setRefreshError] = useState("");
   const [stopping, setStopping] = useState(false);
   const [stopMessage, setStopMessage] = useState("");
 
   useEffect(() => {
     let active = true;
     const refresh = async () => {
-      const response = await fetch("/api/boot", { cache: "no-store" });
-      if (!response.ok) return;
-      const data = (await response.json()) as { services: Service[]; updatedAt: string };
-      if (active) {
-        setServices(data.services);
-        setUpdatedAt(data.updatedAt);
+      try {
+        const response = await fetch("/api/boot", { cache: "no-store" });
+        if (!response.ok) {
+          throw new Error(`Boot status request failed (${response.status}).`);
+        }
+        const data = (await response.json()) as { services: Service[]; updatedAt: string };
+        if (active) {
+          setServices(data.services);
+          setUpdatedAt(data.updatedAt);
+          setRefreshError("");
+        }
+      } catch (error) {
+        if (active) {
+          setRefreshError(error instanceof Error ? error.message : "Unable to refresh service status.");
+        }
       }
     };
     refresh();
@@ -87,6 +97,7 @@ export default function BootDashboard() {
         ))}
       </div>
       <p className="boot-updated">Last checked {updatedAt ? new Date(updatedAt).toLocaleTimeString() : "—"}</p>
+      {refreshError && <p className="boot-stop-message" role="alert">{refreshError} Retrying…</p>}
       {stopMessage && <p className="boot-stop-message" role="status">{stopMessage}</p>}
     </main>
   );
