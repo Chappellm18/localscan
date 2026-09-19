@@ -176,16 +176,6 @@ if (Test-Path -LiteralPath $webBuildRoot -PathType Container) {
 
 Write-Host 'Starting LocalScan dependencies (Redis and Postgres)...' -ForegroundColor Cyan
 $composeFile = Join-Path $ProjectRoot 'docker-compose.yml'
-foreach ($containerName in 'localscan_redis_1', 'localscan_postgres_1') {
-    & podman container exists $containerName
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "Removing the existing $containerName container..." -ForegroundColor Yellow
-        & podman rm -f $containerName
-        if ($LASTEXITCODE -ne 0) {
-            throw "Unable to remove the existing $containerName container."
-        }
-    }
-}
 & podman compose -f $composeFile up -d
 if ($LASTEXITCODE -ne 0) {
     throw 'LocalScan dependency startup failed.'
@@ -221,6 +211,22 @@ Start-HiddenService -Name 'web' -Command "$workerEnvironment; Set-Location apps\
 Start-HiddenService -Name 'discovery' -Command "$workerEnvironment; Set-Location workers; cargo run --bin discovery-worker"
 Start-HiddenService -Name 'scoring' -Command "$workerEnvironment; Set-Location workers; cargo run --bin scoring-worker"
 Start-HiddenService -Name 'dependencies' -Command 'podman compose logs --follow'
+
+Write-Host 'Waiting for the web app to accept connections...' -ForegroundColor Cyan
+$webReady = $false
+for ($attempt = 1; $attempt -le 30; $attempt++) {
+    try {
+        Invoke-WebRequest -Uri 'http://127.0.0.1:3000/boot' -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop | Out-Null
+        $webReady = $true
+        break
+    } catch [System.Net.WebException] {
+        Start-Sleep -Seconds 1
+    }
+}
+if (-not $webReady) {
+    $webErrorPath = Join-Path $bootRoot 'web.error.log'
+    throw "The web app did not accept connections on port 3000. Check '$webErrorPath' for details."
+}
 
 Write-Host ''
 Write-Host 'LocalScan is starting.' -ForegroundColor Green

@@ -5,6 +5,15 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+$pythonScripts = Join-Path $env:APPDATA 'Python\Python38\Scripts'
+if (Test-Path -LiteralPath $pythonScripts) {
+    $env:Path = "$pythonScripts;$env:Path"
+    $podmanCompose = Join-Path $pythonScripts 'podman-compose.exe'
+    if (Test-Path -LiteralPath $podmanCompose) {
+        $env:PODMAN_COMPOSE_PROVIDER = $podmanCompose
+    }
+}
+
 function Stop-ProcessTree {
     param([int]$ProcessId)
 
@@ -52,9 +61,23 @@ foreach ($process in $processes) {
 $composeFiles = Get-ChildItem -LiteralPath $SearchRoot -Filter 'docker-compose.yml' -File -Recurse -ErrorAction SilentlyContinue
 foreach ($composeFile in $composeFiles) {
     if (Get-Command podman -ErrorAction SilentlyContinue) {
-        & podman compose -f $composeFile.FullName down *> $null
+        $composeErrorAction = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        $composeContainers = @(& podman compose -f $composeFile.FullName ps -q 2>$null)
+        $composeExitCode = $LASTEXITCODE
+        $ErrorActionPreference = $composeErrorAction
+        if ($composeExitCode -eq 0 -and $composeContainers.Count -gt 0) {
+            & podman compose -f $composeFile.FullName down
+        }
     } elseif (Get-Command docker -ErrorAction SilentlyContinue) {
-        & docker compose -f $composeFile.FullName down *> $null
+        $composeErrorAction = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        $composeContainers = @(& docker compose -f $composeFile.FullName ps -q 2>$null)
+        $composeExitCode = $LASTEXITCODE
+        $ErrorActionPreference = $composeErrorAction
+        if ($composeExitCode -eq 0 -and $composeContainers.Count -gt 0) {
+            & docker compose -f $composeFile.FullName down
+        }
     } else {
         Write-Warning 'Neither podman nor docker was found; dependency containers were not stopped.'
         break
