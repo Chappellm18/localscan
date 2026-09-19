@@ -140,7 +140,7 @@ out body center;"#
         .json()
         .await?;
 
-    let candidates = overpass_resp
+    let candidates: Vec<RawCandidate> = overpass_resp
         .elements
         .into_iter()
         .filter_map(|el| {
