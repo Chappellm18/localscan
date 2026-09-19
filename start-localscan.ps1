@@ -161,7 +161,7 @@ $migrationPath = Join-Path $ProjectRoot 'db\migrations\002_add_discovery_job_id.
 Get-Content -LiteralPath $migrationPath |
     & podman compose -f $composeFile exec -T postgres psql -U localscan -d localscan -v ON_ERROR_STOP=1
 
-Start-HiddenService -Name 'web' -Command "$workerEnvironment; Set-Location apps\web; npm run dev"
+Start-HiddenService -Name 'web' -Command "$workerEnvironment; Set-Location apps\web; npm run dev -- --hostname 127.0.0.1 --port 3000"
 Start-HiddenService -Name 'discovery' -Command "$workerEnvironment; Set-Location workers; cargo run --bin discovery-worker"
 Start-HiddenService -Name 'scoring' -Command "$workerEnvironment; Set-Location workers; cargo run --bin scoring-worker"
 Start-HiddenService -Name 'dependencies' -Command 'podman compose logs --follow'
