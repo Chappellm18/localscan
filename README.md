@@ -38,6 +38,7 @@ docker compose up -d          # starts redis + postgres
 # apply the schema
 psql "$DATABASE_URL" -f db/migrations/001_init.sql
 psql "$DATABASE_URL" -f db/migrations/002_add_discovery_job_id.sql
+psql "$DATABASE_URL" -f db/migrations/003_add_modernity_score.sql
 
 # frontend deps
 cd apps/web && npm install && cd ../..
@@ -97,7 +98,7 @@ Use `-SearchRoot` to limit cleanup to a specific parent folder:
 Then `POST /api/jobs/discover` with `{ "zip": "10940" }` to kick off a run,
 and open an SSE connection to `/api/jobs/{jobId}/stream` to watch progress.
 
-## What's scaffolded vs. what's a stub
+## What's scaffolded vs. what's deferred
 
 This is a working skeleton, not a finished product. Wired up end-to-end:
 queue contract, status reporting, SSE streaming, Postgres schema, worker
@@ -109,10 +110,8 @@ process structure, axe-core injection mechanics.
   the source decision and the concerns flagged on each.
 - `workers/crates/discovery/src/extract.rs` — field normalization/dedup
   across sources.
-- `workers/crates/scoring/src/rubric.rs` — performance and SEO scoring are
-  placeholder/neutral values; only accessibility (via axe-core) and basics
-  are real. The "modernity" scoring category from DESIGN.md §5 isn't
-  implemented yet.
+- Scoring heuristics should be calibrated against real scans before being used
+  as a benchmark; the current worker computes all five DESIGN.md categories.
 - Auth/billing (`apps/web` has no auth wired up yet — Phase 1 per §9 is
   single-user, no login).
 - The SSE route's incremental per-business result streaming (marked as a

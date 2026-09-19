@@ -18,11 +18,11 @@ export async function GET(
   const { rows } = await getDb().query(
     `SELECT b.id, b.name, b.address, b.zip, b.lat, b.lng, b.category,
             b.phone, b.website_url, s.overall_score, s.accessibility_score,
-            s.performance_score, s.seo_score, s.basics_score
+            s.performance_score, s.seo_score, s.basics_score, s.modernity_score
        FROM businesses b
        LEFT JOIN LATERAL (
          SELECT overall_score, accessibility_score, performance_score,
-                seo_score, basics_score
+                seo_score, basics_score, modernity_score
            FROM site_scores
           WHERE business_id = b.id
           ORDER BY scanned_at DESC

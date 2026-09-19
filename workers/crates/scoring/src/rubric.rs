@@ -5,13 +5,23 @@
 
 use anyhow::Result;
 use chromiumoxide::Page;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 pub struct BasicsCheck {
     pub has_https: bool,
     pub has_viewport_meta: bool,
     pub has_title: bool,
     pub has_meta_description: bool,
+}
+
+#[derive(Debug, Default, Deserialize, Serialize)]
+pub struct PageSignals {
+    pub load_time_ms: Option<f32>,
+    pub has_structured_data: bool,
+    pub heading_count: u32,
+    pub has_broken_links: bool,
+    pub responsive_breakpoints: u32,
+    pub has_modern_css: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -21,16 +31,14 @@ pub struct Score {
     pub performance: f32,
     pub seo: f32,
     pub basics: f32,
+    pub modernity: f32,
 }
 
 const WEIGHT_BASICS: f32 = 0.15;
 const WEIGHT_ACCESSIBILITY: f32 = 0.30;
 const WEIGHT_PERFORMANCE: f32 = 0.20;
 const WEIGHT_SEO: f32 = 0.15;
-// The remaining 20% ("modernity/design signals" in §5 — broken links,
-// last-modified headers, responsive breakpoints) isn't implemented in this
-// scaffold; folded into basics for now until that check is built out.
-// Revisit weight distribution once it lands.
+const WEIGHT_MODERNITY: f32 = 0.20;
 
 pub async fn check_basics(page: &Page) -> Result<BasicsCheck> {
     let url = page.url().await?.unwrap_or_default();
@@ -105,39 +113,49 @@ fn basics_score(basics: &BasicsCheck) -> f32 {
     (passed / checks.len() as f32) * 100.0
 }
 
-/// Performance and SEO scoring are placeholders — performance should pull
-/// Core Web Vitals via the CDP `Performance` domain (DESIGN.md §6a step 6),
-/// and SEO should expand beyond meta-description presence (structured
-/// data, heading hierarchy, etc). Stubbed at a neutral midpoint so overall
-/// scores aren't misleadingly high/low until these are implemented.
-fn performance_score() -> f32 {
-    50.0
-}
-
-fn seo_score(basics: &BasicsCheck) -> f32 {
-    if basics.has_title && basics.has_meta_description {
-        75.0
-    } else {
-        40.0
+fn performance_score(signals: &PageSignals) -> f32 {
+    match signals.load_time_ms {
+        Some(load_time) if load_time <= 1_500.0 => 100.0,
+        Some(load_time) if load_time <= 3_000.0 => 80.0,
+        Some(load_time) if load_time <= 5_000.0 => 60.0,
+        Some(load_time) if load_time <= 8_000.0 => 35.0,
+        Some(_) => 15.0,
+        None => 50.0,
     }
 }
 
-pub fn compute_score(axe_report: &serde_json::Value, basics: &BasicsCheck) -> Score {
+fn seo_score(basics: &BasicsCheck, signals: &PageSignals) -> f32 {
+    let mut score = 0.0;
+    if basics.has_title { score += 35.0; }
+    if basics.has_meta_description { score += 35.0; }
+    if signals.has_structured_data { score += 20.0; }
+    if signals.heading_count > 0 { score += 10.0; }
+    score
+}
+
+fn modernity_score(signals: &PageSignals) -> f32 {
+    let responsive = (signals.responsive_breakpoints.min(3) as f32 / 3.0) * 45.0;
+    let css = if signals.has_modern_css { 25.0 } else { 0.0 };
+    let links = if signals.has_broken_links { 0.0 } else { 30.0 };
+    responsive + css + links
+}
+
+pub fn compute_score(
+    axe_report: &serde_json::Value,
+    basics: &BasicsCheck,
+    signals: &PageSignals,
+) -> Score {
     let accessibility = accessibility_score(axe_report);
-    let performance = performance_score();
-    let seo = seo_score(basics);
+    let performance = performance_score(signals);
+    let seo = seo_score(basics, signals);
     let basics_s = basics_score(basics);
+    let modernity = modernity_score(signals);
 
     let overall = accessibility * WEIGHT_ACCESSIBILITY
         + performance * WEIGHT_PERFORMANCE
         + seo * WEIGHT_SEO
         + basics_s * WEIGHT_BASICS
-        // Modernity weight (20%) not yet implemented — see comment above.
-        // Redistributing proportionally across implemented categories so
-        // overall isn't scaled down by an unimplemented 20% until it lands:
-        ;
-    let implemented_weight = WEIGHT_ACCESSIBILITY + WEIGHT_PERFORMANCE + WEIGHT_SEO + WEIGHT_BASICS;
-    let overall = overall / implemented_weight;
+        + modernity * WEIGHT_MODERNITY;
 
     Score {
         overall,
@@ -145,5 +163,28 @@ pub fn compute_score(axe_report: &serde_json::Value, basics: &BasicsCheck) -> Sc
         performance,
         seo,
         basics: basics_s,
+        modernity,
     }
+}
+
+pub async fn collect_page_signals(page: &Page) -> Result<PageSignals> {
+    let script = r#"
+      (() => {
+        const links = [...document.querySelectorAll('a[href]')];
+        const breakpoints = new Set([...document.styleSheets].flatMap(sheet => {
+          try { return [...sheet.cssRules]; } catch (_) { return []; }
+        }).filter(rule => rule.conditionText && rule.conditionText.includes('width')).map(rule => rule.conditionText)).size;
+        return JSON.stringify({
+          load_time_ms: performance.timing.loadEventEnd > 0
+            ? performance.timing.loadEventEnd - performance.timing.navigationStart : null,
+          has_structured_data: !!document.querySelector('script[type="application/ld+json"]'),
+          heading_count: document.querySelectorAll('h1,h2,h3').length,
+          has_broken_links: links.some(a => a.getAttribute('href') === '#' || a.getAttribute('href') === ''),
+          responsive_breakpoints: breakpoints,
+          has_modern_css: !!document.querySelector('main, header, nav, footer')
+        });
+      })()
+    "#;
+    let json = page.evaluate(script).await?.into_value::<String>()?;
+    Ok(serde_json::from_str(&json)?)
 }
