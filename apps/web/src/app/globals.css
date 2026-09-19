@@ -270,6 +270,49 @@ a {
   position: relative;
 }
 
+.osm-map-wrap {
+  background: #dfe5cd;
+  border: 1px solid var(--line);
+  min-height: 560px;
+  overflow: hidden;
+  position: relative;
+}
+
+.osm-map {
+  height: 560px;
+  width: 100%;
+}
+
+.map-loading {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  font: 0.72rem "DM Mono", monospace;
+  justify-content: center;
+}
+
+.map-popup-button {
+  background: var(--green);
+  border: 0;
+  color: var(--lime);
+  cursor: pointer;
+  font: 0.68rem "DM Mono", monospace;
+  margin-top: 8px;
+  padding: 6px 8px;
+}
+
+.map-empty {
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--muted);
+  font: 0.7rem "DM Mono", monospace;
+  left: 50%;
+  padding: 10px 13px;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 500;
+}
+
 .map-surface {
   background-color: #dfe5cd;
   background-image: linear-gradient(30deg, transparent 48%, rgba(25, 61, 46, 0.08) 49%, transparent 51%), linear-gradient(120deg, transparent 48%, rgba(25, 61, 46, 0.07) 49%, transparent 51%);
@@ -772,7 +815,8 @@ h1 em {
   .results-page { padding: 8vh 0 7vh; }
   .results-heading { align-items: start; flex-direction: column; gap: 25px; }
   .results-layout { display: block; }
-  .interactive-map, .map-surface { min-height: 430px; }
+  .interactive-map, .map-surface, .osm-map-wrap { min-height: 430px; }
+  .osm-map { height: 430px; }
   .result-panel { margin-top: 14px; min-height: 250px; }
   .result-card { align-items: start; gap: 12px; }
   .list-score { margin-left: auto; }
