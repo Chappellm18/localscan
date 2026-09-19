@@ -35,7 +35,14 @@ struct OverpassElement {
     id: u64,
     lat: Option<f64>,
     lon: Option<f64>,
+    center: Option<OverpassCenter>,
     tags: Option<HashMap<String, String>>,
+}
+
+#[derive(Debug, Deserialize)]
+struct OverpassCenter {
+    lat: f64,
+    lon: f64,
 }
 
 fn build_address(tags: &HashMap<String, String>) -> Option<String> {
@@ -69,6 +76,7 @@ fn build_address(tags: &HashMap<String, String>) -> Option<String> {
 /// volume, but if this needs to run at real job throughput later, look at
 /// a self-hosted Nominatim/Overpass instance or a paid geocoding provider.
 async fn crawl_business_websites(job: &DiscoveryJob) -> Result<Vec<RawCandidate>> {
+    tracing::info!(zip = %job.zip, "querying OpenStreetMap for businesses");
     let client = reqwest::Client::builder()
         .user_agent("LocalScan/0.1 (local dev)")
         .build()?;
@@ -102,8 +110,12 @@ async fn crawl_business_websites(job: &DiscoveryJob) -> Result<Vec<RawCandidate>
 (
   node["shop"="{cat}"](around:{radius_meters},{lat},{lon});
   node["amenity"="{cat}"](around:{radius_meters},{lat},{lon});
+  way["shop"="{cat}"](around:{radius_meters},{lat},{lon});
+  way["amenity"="{cat}"](around:{radius_meters},{lat},{lon});
+  relation["shop"="{cat}"](around:{radius_meters},{lat},{lon});
+  relation["amenity"="{cat}"](around:{radius_meters},{lat},{lon});
 );
-out body;"#
+out body center;"#
         )
     } else {
         format!(
@@ -111,8 +123,12 @@ out body;"#
 (
   node["shop"](around:{radius_meters},{lat},{lon});
   node["amenity"](around:{radius_meters},{lat},{lon});
+  way["shop"](around:{radius_meters},{lat},{lon});
+  way["amenity"](around:{radius_meters},{lat},{lon});
+  relation["shop"](around:{radius_meters},{lat},{lon});
+  relation["amenity"](around:{radius_meters},{lat},{lon});
 );
-out body;"#
+out body center;"#
         )
     };
 
@@ -132,11 +148,21 @@ out body;"#
             let name = tags.get("name")?.clone();
             let address = build_address(&tags);
             let category = tags.get("shop").or_else(|| tags.get("amenity")).cloned();
-            let phone = tags.get("phone").or_else(|| tags.get("contact:phone")).cloned();
+            let phone = tags
+                .get("phone")
+                .or_else(|| tags.get("contact:phone"))
+                .cloned();
             let website_url = tags
                 .get("website")
                 .or_else(|| tags.get("contact:website"))
                 .cloned();
+
+            let latitude = el
+                .lat
+                .or_else(|| el.center.as_ref().map(|center| center.lat));
+            let longitude = el
+                .lon
+                .or_else(|| el.center.as_ref().map(|center| center.lon));
 
             Some(RawCandidate {
                 source: "business_website".to_string(),
@@ -147,13 +173,18 @@ out body;"#
                     "category": category,
                     "phone": phone,
                     "website_url": website_url,
-                    "lat": el.lat,
-                    "lng": el.lon,
+                    "lat": latitude,
+                    "lng": longitude,
                 }),
             })
         })
         .collect();
 
+    tracing::info!(
+        zip = %job.zip,
+        candidates = candidates.len(),
+        "OpenStreetMap returned named business candidates"
+    );
     Ok(candidates)
 }
 

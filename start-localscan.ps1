@@ -117,12 +117,16 @@ if ($schemaExists.Trim() -ne 't') {
         & podman compose -f (Join-Path $ProjectRoot 'docker-compose.yml') exec -T postgres psql -U localscan -d localscan -v ON_ERROR_STOP=1
 }
 
+$migrationPath = Join-Path $ProjectRoot 'db\migrations\002_add_discovery_job_id.sql'
+Get-Content -LiteralPath $migrationPath |
+    & podman compose -f (Join-Path $ProjectRoot 'docker-compose.yml') exec -T postgres psql -U localscan -d localscan -v ON_ERROR_STOP=1
+
 $bootRoot = Join-Path $ProjectRoot '.localscan\boot'
 New-Item -ItemType Directory -Force -Path $bootRoot | Out-Null
 Get-ChildItem -LiteralPath $bootRoot -Filter '*.log' -ErrorAction SilentlyContinue | Remove-Item -Force
 Get-ChildItem -LiteralPath $bootRoot -Filter '*.pid' -ErrorAction SilentlyContinue | Remove-Item -Force
 
-Start-HiddenService -Name 'web' -Command 'Set-Location apps\web; npm run dev'
+Start-HiddenService -Name 'web' -Command "$workerEnvironment; Set-Location apps\web; npm run dev"
 Start-HiddenService -Name 'discovery' -Command "$workerEnvironment; Set-Location workers; cargo run --bin discovery-worker"
 Start-HiddenService -Name 'scoring' -Command "$workerEnvironment; Set-Location workers; cargo run --bin scoring-worker"
 Start-HiddenService -Name 'dependencies' -Command 'podman compose logs --follow'

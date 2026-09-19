@@ -28,7 +28,7 @@ impl RedisStreams {
         // MKSTREAM creates the stream if it doesn't exist yet; ignore the
         // error if the group already exists (BUSYGROUP).
         let created: Result<(), redis::RedisError> = conn
-            .xgroup_create_mkstream(stream, group, "$")
+            .xgroup_create_mkstream(stream, group, "0")
             .await;
         if let Err(e) = created {
             if !e.to_string().contains("BUSYGROUP") {

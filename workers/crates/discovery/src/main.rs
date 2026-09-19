@@ -60,6 +60,13 @@ async fn main() -> Result<()> {
                 }
             };
 
+            tracing::info!(
+                entry_id = %entry_id,
+                job_id = %job.job_id,
+                zip = %job.zip,
+                "discovery job received"
+            );
+
             if let Err(e) = handle_job(&mut streams, &pg_pool, &redis_url, &job).await {
                 tracing::error!(job_id = %job.job_id, error = %e, "discovery job failed");
                 let mut conn = streams.connection();
@@ -112,6 +119,12 @@ async fn handle_job(
     //    source (business-site crawl, Facebook Page, Instagram) is its own
     //    module so they can be enabled/disabled/rate-limited independently.
     let candidates = sources::discover_businesses(job).await?;
+    tracing::info!(
+        job_id = %job.job_id,
+        zip = %job.zip,
+        candidates = candidates.len(),
+        "discovery sources returned candidates"
+    );
 
     write_status(
         &mut status_conn,
@@ -129,6 +142,11 @@ async fn handle_job(
     // 2. Normalize/extract structured fields (name, address, phone,
     //    website) from raw crawl results.
     let businesses = extract::normalize(candidates)?;
+    tracing::info!(
+        job_id = %job.job_id,
+        businesses = businesses.len(),
+        "normalized businesses"
+    );
 
     // 3. Persist to Postgres and fan out scoring jobs for anything with a
     //    website. Writing directly to Postgres (not back through Node) per
@@ -138,6 +156,13 @@ async fn handle_job(
 
     for (i, biz) in businesses.iter().enumerate() {
         let business_id = db_upsert_business(pg_pool, job, biz).await?;
+        tracing::info!(
+            job_id = %job.job_id,
+            business_id = %business_id,
+            name = %biz.name,
+            has_website = biz.website_url.is_some(),
+            "business persisted"
+        );
 
         if let Some(url) = &biz.website_url {
             let scoring_job = ScoringJob {
