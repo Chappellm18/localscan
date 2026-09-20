@@ -23,7 +23,6 @@ pub async fn discover_businesses(job: &DiscoveryJob) -> Result<Vec<RawCandidate>
 struct NominatimResult {
     lat: String,
     lon: String,
-    boundingbox: [String; 4],
 }
 
 #[derive(Debug, Deserialize)]
@@ -68,10 +67,10 @@ fn build_address(tags: &HashMap<String, String>) -> Option<String> {
 /// Lowest-risk source (DESIGN.md §4) — rather than scraping an arbitrary
 /// directory site's HTML (fragile, and often blocked by robots.txt, which
 /// `spider` respects anyway), this queries OpenStreetMap directly: Nominatim
-/// geocodes the ZIP to a center point and bounding box, then Overpass returns
-/// tagged businesses inside the full ZIP area (or within radius_miles when
-/// explicitly requested). Both are free, keyless, and explicitly meant for
-/// this kind of POI lookup.
+/// geocodes the ZIP to a center point, then Overpass returns tagged businesses
+/// within a bounded radius. Results without an explicitly requested radius are
+/// narrowed to the requested ZIP below. Both are free, keyless, and explicitly
+/// meant for this kind of POI lookup.
 ///
 /// Note: Nominatim's usage policy caps unauthenticated use at ~1 req/sec
 /// and requires a descriptive User-Agent (set below) — fine for dev/low
@@ -102,13 +101,12 @@ async fn crawl_business_websites(job: &DiscoveryJob) -> Result<Vec<RawCandidate>
     };
     let lat: f64 = center.lat.parse()?;
     let lon: f64 = center.lon.parse()?;
-    let [south, north, west, east] = center.boundingbox;
-    let radius_meters = (job.radius_miles.unwrap_or(0) as f64 * 1609.34) as u32;
-    let area = if radius_meters > 0 {
-        format!("(around:{radius_meters},{lat},{lon})")
-    } else {
-        format!("({south},{west},{north},{east})")
-    };
+    // Nominatim's ZIP bounding boxes can cover an entire metro area rather
+    // than the postal area itself. Keep the default Overpass query bounded;
+    // results are still narrowed to the requested ZIP below.
+    let radius_miles = job.radius_miles.unwrap_or(5).max(1);
+    let radius_meters = (radius_miles as f64 * 1609.34) as u32;
+    let area = format!("(around:{radius_meters},{lat},{lon})");
 
     let query = if let Some(cat) = &job.category_filter {
         let cat = cat.replace('"', "");
