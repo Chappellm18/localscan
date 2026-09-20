@@ -30,21 +30,46 @@ function Assert-Command {
     }
 }
 
-function Start-HiddenService {
+function Wait-ForServicePid {
     param(
-        [string]$Name,
-        [string]$Command
-    )
+    [string]$PidPath,
+    [string]$Name,
+    [int]$TimeoutSeconds = 15
+)
 
-    $logRoot = Join-Path $ProjectRoot '.localscan\boot'
-    $logPath = Join-Path $logRoot "$Name.log"
-    $errorPath = Join-Path $logRoot "$Name.error.log"
-    $pidPath = Join-Path $logRoot "$Name.pid"
-    $serviceCommand = "`$env:LOCALSCAN_BOOT_ROOT='$logRoot'; Set-Location -LiteralPath '$ProjectRoot'; $Command"
-    $process = Start-Process -FilePath 'powershell.exe' -WindowStyle Hidden -WorkingDirectory $ProjectRoot `
-        -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', $serviceCommand) `
-        -RedirectStandardOutput $logPath -RedirectStandardError $errorPath -PassThru
-    Set-Content -LiteralPath $pidPath -Value $process.Id -Encoding ascii
+$deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+while ((Get-Date) -lt $deadline) {
+    if (Test-Path -LiteralPath $PidPath) {
+        $pidText = (Get-Content -LiteralPath $PidPath -Raw -ErrorAction SilentlyContinue).Trim()
+        $pid = 0
+        if ([int]::TryParse($pidText, [ref]$pid)) {
+            if (Get-Process -Id $pid -ErrorAction SilentlyContinue) {
+                return
+            }
+        }
+    }
+    Start-Sleep -Milliseconds 250
+}
+
+throw "The $Name process did not stay alive after startup. Check the boot logs in '$PidPath'."
+}
+
+function Start-HiddenService {
+param(
+    [string]$Name,
+    [string]$Command
+)
+
+$logRoot = Join-Path $ProjectRoot '.localscan\boot'
+$logPath = Join-Path $logRoot "$Name.log"
+$errorPath = Join-Path $logRoot "$Name.error.log"
+$pidPath = Join-Path $logRoot "$Name.pid"
+$serviceCommand = "`$env:LOCALSCAN_BOOT_ROOT='$logRoot'; Set-Location -LiteralPath '$ProjectRoot'; $Command"
+$process = Start-Process -FilePath 'powershell.exe' -WindowStyle Hidden -WorkingDirectory $ProjectRoot `
+    -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', $serviceCommand) `
+    -RedirectStandardOutput $logPath -RedirectStandardError $errorPath -PassThru
+Set-Content -LiteralPath $pidPath -Value $process.Id -Encoding ascii
+Wait-ForServicePid -PidPath $pidPath -Name $Name
 }
 
 function Stop-PreviousServices {

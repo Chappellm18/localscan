@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { execFile } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
@@ -23,6 +23,35 @@ function isRunning(pidPath: string) {
   try {
     process.kill(pid, 0);
     return true;
+  } catch {
+    return false;
+  }
+}
+
+function hasMatchingWindowsProcess(serviceId: string) {
+  if (process.platform !== "win32") return false;
+
+  const commandPattern = {
+    web: "next\\.cmd\\s+dev|next\\s+dev",
+    discovery: "discovery-worker",
+    scoring: "scoring-worker",
+    dependencies: "podman\\s+compose\\s+logs",
+  }[serviceId];
+
+  if (!commandPattern) return false;
+
+  try {
+    const output = execFileSync(
+      "powershell",
+      [
+        "-NoProfile",
+        "-NoLogo",
+        "-Command",
+        `Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -match '(?i)${commandPattern}' } | Measure-Object | Select-Object -ExpandProperty Count`,
+      ],
+      { encoding: "utf8" },
+    ).trim();
+    return Number.parseInt(output, 10) > 0;
   } catch {
     return false;
   }
@@ -60,12 +89,17 @@ function stopProcess(pid: number) {
 export async function GET() {
   const bootRoot = getBootRoot();
   return NextResponse.json({
-    services: services.map((service) => ({
-      ...service,
-      running: isRunning(path.join(bootRoot, `${service.id}.pid`)),
-      output: readText(path.join(bootRoot, service.log)),
-      error: readText(path.join(bootRoot, service.errorLog)),
-    })),
+    services: services.map((service) => {
+      const pidPath = path.join(bootRoot, `${service.id}.pid`);
+      const running = isRunning(pidPath) || hasMatchingWindowsProcess(service.id);
+
+      return {
+        ...service,
+        running,
+        output: readText(path.join(bootRoot, service.log)),
+        error: readText(path.join(bootRoot, service.errorLog)),
+      };
+    }),
     updatedAt: new Date().toISOString(),
   });
 }
