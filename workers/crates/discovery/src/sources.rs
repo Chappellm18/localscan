@@ -8,6 +8,7 @@ use anyhow::Result;
 use common::job::DiscoveryJob;
 use serde::Deserialize;
 use std::collections::HashMap;
+use std::time::Duration;
 
 pub async fn discover_businesses(job: &DiscoveryJob) -> Result<Vec<RawCandidate>> {
     let mut candidates = Vec::new();
@@ -46,6 +47,12 @@ struct OverpassCenter {
     lon: f64,
 }
 
+const OVERPASS_ENDPOINTS: [&str; 3] = [
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
+    "https://overpass.private.coffee/api/interpreter",
+];
+
 fn build_address(tags: &HashMap<String, String>) -> Option<String> {
     let parts: Vec<&str> = [
         tags.get("addr:housenumber").map(String::as_str),
@@ -81,6 +88,7 @@ async fn crawl_business_websites(job: &DiscoveryJob) -> Result<Vec<RawCandidate>
     tracing::info!(zip = %job.zip, "querying OpenStreetMap for businesses");
     let client = reqwest::Client::builder()
         .user_agent("LocalScan/0.1 (local dev)")
+        .timeout(Duration::from_secs(75))
         .build()?;
 
     let geo_resp: Vec<NominatimResult> = client
@@ -135,14 +143,7 @@ out body center;"#
         )
     };
 
-    let overpass_resp: OverpassResponse = client
-        .post("https://overpass-api.de/api/interpreter")
-        .body(query)
-        .send()
-        .await?
-        .error_for_status()?
-        .json()
-        .await?;
+    let overpass_resp = query_overpass(&client, &query).await?;
 
     let candidates: Vec<RawCandidate> = overpass_resp
         .elements
@@ -198,6 +199,72 @@ out body center;"#
         "OpenStreetMap returned named business candidates"
     );
     Ok(candidates)
+}
+
+async fn query_overpass(client: &reqwest::Client, query: &str) -> Result<OverpassResponse> {
+    let mut last_error = None;
+
+    for endpoint in OVERPASS_ENDPOINTS {
+        for attempt in 0..2 {
+            let response = client.post(endpoint).body(query.to_owned()).send().await;
+            match response {
+                Ok(response) if response.status().is_success() => {
+                    match response.json::<OverpassResponse>().await {
+                        Ok(parsed) => return Ok(parsed),
+                        Err(error) => {
+                            last_error = Some(anyhow::anyhow!(
+                                "Overpass response from {endpoint} was not valid JSON: {error}"
+                            ));
+                        }
+                    }
+                    break;
+                }
+                Ok(response) if is_retryable_status(response.status()) => {
+                    last_error = Some(anyhow::anyhow!(
+                        "Overpass endpoint {endpoint} returned HTTP {}",
+                        response.status()
+                    ));
+                }
+                Ok(response) => {
+                    return Err(anyhow::anyhow!(
+                        "Overpass endpoint {endpoint} returned non-retryable HTTP {}",
+                        response.status()
+                    ));
+                }
+                Err(error) => {
+                    last_error = Some(anyhow::anyhow!(
+                        "request to Overpass endpoint {endpoint} failed: {error}"
+                    ));
+                }
+            }
+
+            if attempt == 0 {
+                tokio::time::sleep(Duration::from_secs(1)).await;
+            }
+        }
+    }
+
+    Err(last_error.unwrap_or_else(|| anyhow::anyhow!("all Overpass endpoints failed")))
+}
+
+fn is_retryable_status(status: reqwest::StatusCode) -> bool {
+    status == reqwest::StatusCode::TOO_MANY_REQUESTS || status.is_server_error()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_retryable_status;
+
+    #[test]
+    fn retries_overpass_rate_limits_and_server_errors() {
+        assert!(is_retryable_status(reqwest::StatusCode::TOO_MANY_REQUESTS));
+        assert!(is_retryable_status(reqwest::StatusCode::GATEWAY_TIMEOUT));
+        assert!(is_retryable_status(
+            reqwest::StatusCode::INTERNAL_SERVER_ERROR
+        ));
+        assert!(!is_retryable_status(reqwest::StatusCode::BAD_REQUEST));
+        assert!(!is_retryable_status(reqwest::StatusCode::NOT_FOUND));
+    }
 }
 
 /// Facebook Page scraping — see DESIGN.md §4 for the legal/ToS concerns
