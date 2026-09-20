@@ -284,7 +284,9 @@ a {
 }
 
 .map-pane {
+  height: 100%;
   min-width: 0;
+  min-height: 560px;
 }
 
 .results-sidebar .result-panel {
@@ -309,6 +311,7 @@ a {
 
 .osm-map {
   height: 100%;
+  min-height: inherit;
   width: 100%;
 }
 
@@ -392,7 +395,7 @@ a {
   padding: 9px 12px;
   position: absolute;
   top: 16px;
-  z-index: 2;
+  z-index: 1000;
 }
 
 .map-location-label strong { font: 700 0.8rem "DM Mono", monospace; }
@@ -470,7 +473,10 @@ a {
   font: 0.65rem "DM Mono", monospace;
   gap: 8px;
   left: 16px;
+  line-height: 1.4;
+  max-width: calc(100% - 32px);
   padding: 9px 12px;
+  z-index: 1000;
   position: absolute;
 }
 
