@@ -119,7 +119,7 @@ export default function Home() {
       : "Search queued";
 
   return (
-    <main className="landing-page">
+    <main className={`landing-page${isReady ? " results-mode" : ""}`}>
       <nav className="site-nav" aria-label="Main navigation">
         <a className="brand" href="/" aria-label="LocalScan home"><span className="brand-mark" aria-hidden="true">L</span>LocalScan</a>
         <span className="nav-note">Local intelligence, made simple.</span>
@@ -152,7 +152,22 @@ export default function Home() {
           {error && <p className="form-message error" role="alert">{error}</p>}
           {view === "map" ? (
             <div className="results-layout">
-              <div aria-label="Interactive OpenStreetMap business map">
+              <aside className="results-sidebar" aria-label="Businesses in search area">
+                <p className="sidebar-label">Businesses</p>
+                <div className="results-sidebar-list">
+                  {results.map((result, index) => (
+                    <ResultCard
+                      key={result.id}
+                      index={index}
+                      result={result}
+                      selected={result.id === selectedId}
+                      onSelect={setSelectedId}
+                    />
+                  ))}
+                </div>
+                <ResultPanel result={results.find((result) => result.id === selectedId) ?? results[0]} />
+              </aside>
+              <div className="map-pane" aria-label="Interactive OpenStreetMap business map">
                 <BusinessMap
                   results={results}
                   selectedId={selectedId}
@@ -160,7 +175,6 @@ export default function Home() {
                   zip={zip}
                 />
               </div>
-              <ResultPanel result={results.find((result) => result.id === selectedId) ?? results[0]} />
             </div>
           ) : <div className="results-list">{results.map((result, index) => <ResultCard key={result.id} result={result} index={index} />)}</div>}
         </section>
@@ -182,6 +196,28 @@ function ResultPanel({ result }: { result?: Result }) {
   return <aside className="result-panel"><p className="card-kicker">{result.category ?? "Local business"}</p><h2>{result.name}</h2><p className="result-address">{result.address ?? "Address unavailable"}</p><div className="score-large">{scoreLabel(result.overall_score)}</div><p className="score-note">Overall online presence score</p><div className="score-breakdown">{dimensions.map(([label, score]) => <div className="score-row" key={label}><span>{label}</span><strong>{scoreLabel(score)}</strong><div className="score-track"><i style={{ width: `${score ?? 0}%` }} /></div></div>)}</div>{result.website_url && <a className="website-link" href={result.website_url} target="_blank" rel="noreferrer">Visit website <span>↗</span></a>}</aside>;
 }
 
-function ResultCard({ result, index }: { result: Result; index: number }) {
-  return <article className="result-card"><span className="list-number">{String(index + 1).padStart(2, "0")}</span><div className="result-card-copy"><p className="card-kicker">{result.category ?? "Local business"}</p><h2>{result.name}</h2><p className="result-address">{result.address ?? "Address unavailable"}</p></div><div className="list-score"><strong>{scoreLabel(result.overall_score)}</strong><span>overall score</span></div></article>;
+function ResultCard({
+  result,
+  index,
+  selected = false,
+  onSelect,
+}: {
+  result: Result;
+  index: number;
+  selected?: boolean;
+  onSelect?: (id: string) => void;
+}) {
+  return <article
+    aria-current={selected ? "true" : undefined}
+    className={`result-card${selected ? " selected" : ""}`}
+    onClick={() => onSelect?.(result.id)}
+    onKeyDown={(event) => {
+      if (onSelect && (event.key === "Enter" || event.key === " ")) {
+        event.preventDefault();
+        onSelect(result.id);
+      }
+    }}
+    role={onSelect ? "button" : undefined}
+    tabIndex={onSelect ? 0 : undefined}
+  ><span className="list-number">{String(index + 1).padStart(2, "0")}</span><div className="result-card-copy"><p className="card-kicker">{result.category ?? "Local business"}</p><h2>{result.name}</h2><p className="result-address">{result.address ?? "Address unavailable"}</p></div><div className="list-score"><strong>{scoreLabel(result.overall_score)}</strong><span>overall score</span></div></article>;
 }
