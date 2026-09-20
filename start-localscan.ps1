@@ -53,15 +53,15 @@ function Stop-PreviousServices {
     $stoppedPids = [System.Collections.Generic.HashSet[int]]::new()
     Get-ChildItem -LiteralPath $LogRoot -Filter '*.pid' -ErrorAction SilentlyContinue | ForEach-Object {
         $pidText = Get-Content -LiteralPath $_.FullName -Raw -ErrorAction SilentlyContinue
-        $servicePid = 0
-        if ([int]::TryParse($pidText.Trim(), [ref]$servicePid)) {
-            $serviceProcess = Get-Process -Id $servicePid -ErrorAction SilentlyContinue
+        $parsedServicePid = 0
+        if ([int]::TryParse($pidText.Trim(), [ref]$parsedServicePid)) {
+            $serviceProcess = Get-Process -Id $parsedServicePid -ErrorAction SilentlyContinue
             if ($serviceProcess) {
-                & taskkill /PID $servicePid /T /F *> $null
+                & taskkill /PID $parsedServicePid /T /F *> $null
                 if ($LASTEXITCODE -ne 0) {
                     throw "Unable to stop the previous $($_.BaseName) process tree."
                 }
-                $stoppedPids.Add($servicePid) | Out-Null
+                $stoppedPids.Add($parsedServicePid) | Out-Null
             }
         }
     }
