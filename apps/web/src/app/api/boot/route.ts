@@ -3,6 +3,8 @@ import { execFile } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
+export const dynamic = "force-dynamic";
+
 const services = [
   { id: "web", label: "Web app", log: "web.log", errorLog: "web.error.log" },
   { id: "discovery", label: "Discovery worker", log: "discovery.log", errorLog: "discovery.error.log" },
