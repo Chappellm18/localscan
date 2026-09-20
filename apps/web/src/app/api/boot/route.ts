@@ -34,6 +34,17 @@ function readPid(pidPath: string) {
   return Number.isInteger(pid) ? pid : null;
 }
 
+function getBootRoot() {
+  const configuredRoot = process.env.LOCALSCAN_BOOT_ROOT;
+  if (configuredRoot) return configuredRoot;
+
+  const candidates = [
+    path.resolve(process.cwd(), ".localscan", "boot"),
+    path.resolve(process.cwd(), "..", "..", ".localscan", "boot"),
+  ];
+  return candidates.find((candidate) => existsSync(candidate)) ?? candidates[0];
+}
+
 function stopProcess(pid: number) {
   return new Promise<void>((resolve, reject) => {
     execFile("taskkill", ["/PID", String(pid), "/T", "/F"], (error) => {
@@ -47,7 +58,7 @@ function stopProcess(pid: number) {
 }
 
 export async function GET() {
-  const bootRoot = path.resolve(process.cwd(), "..", "..", ".localscan", "boot");
+  const bootRoot = getBootRoot();
   return NextResponse.json({
     services: services.map((service) => ({
       ...service,
@@ -60,7 +71,7 @@ export async function GET() {
 }
 
 export async function POST() {
-  const bootRoot = path.resolve(process.cwd(), "..", "..", ".localscan", "boot");
+  const bootRoot = getBootRoot();
   const processes = services
     .map((service) => ({
       id: service.id,

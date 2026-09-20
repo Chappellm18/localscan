@@ -40,7 +40,7 @@ function Start-HiddenService {
     $logPath = Join-Path $logRoot "$Name.log"
     $errorPath = Join-Path $logRoot "$Name.error.log"
     $pidPath = Join-Path $logRoot "$Name.pid"
-    $serviceCommand = "Set-Location -LiteralPath '$ProjectRoot'; $Command"
+    $serviceCommand = "`$env:LOCALSCAN_BOOT_ROOT='$logRoot'; Set-Location -LiteralPath '$ProjectRoot'; $Command"
     $process = Start-Process -FilePath 'powershell.exe' -WindowStyle Hidden -WorkingDirectory $ProjectRoot `
         -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', $serviceCommand) `
         -RedirectStandardOutput $logPath -RedirectStandardError $errorPath -PassThru
