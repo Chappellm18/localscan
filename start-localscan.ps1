@@ -68,9 +68,10 @@ function Stop-PreviousServices {
 
     $projectPath = [System.IO.Path]::GetFullPath($ProjectRoot).TrimEnd('\')
     $projectPattern = [regex]::Escape($projectPath)
+    $currentProcessId = [System.Diagnostics.Process]::GetCurrentProcess().Id
     $serviceProcesses = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
         Where-Object {
-            $_.ProcessId -ne $PID -and
+            $_.ProcessId -ne $currentProcessId -and
             $_.CommandLine -and
             $_.CommandLine -match "(?i)$projectPattern" -and
             $_.CommandLine -match '(?i)(next(\.cmd)?\s+dev|discovery-worker|scoring-worker|podman\s+compose\s+logs)'
