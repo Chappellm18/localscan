@@ -204,7 +204,9 @@ async fn query_overpass(client: &reqwest::Client, query: &str) -> Result<Overpas
 
     for endpoint in OVERPASS_ENDPOINTS {
         for attempt in 0..2 {
-            let response = client.post(endpoint).body(query.to_owned()).send().await;
+            // Overpass expects POST queries as a form field. Sending the raw
+            // query body is rejected by some endpoints with HTTP 406.
+            let response = client.post(endpoint).form(&[("data", query)]).send().await;
             match response {
                 Ok(response) if response.status().is_success() => {
                     match response.json::<OverpassResponse>().await {
