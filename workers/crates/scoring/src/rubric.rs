@@ -1,7 +1,6 @@
-//! Implements the scoring weights from DESIGN.md §5:
-//!   basics 15% / accessibility 30% / performance 20% / seo 15% / modernity 20%
-//! These weights are a starting point per the design doc — expect to tune
-//! them once you see real scores against real businesses.
+//! LocalScan is a lead-generation tool, so the site health signals are inverted
+//! into a "sales opportunity" score: higher scores mean the business is more
+//! likely to need a new website, a redesign, or digital tooling.
 
 use anyhow::Result;
 use chromiumoxide::Page;
@@ -145,11 +144,14 @@ pub fn compute_score(
     basics: &BasicsCheck,
     signals: &PageSignals,
 ) -> Score {
-    let accessibility = accessibility_score(axe_report);
-    let performance = performance_score(signals);
-    let seo = seo_score(basics, signals);
-    let basics_s = basics_score(basics);
-    let modernity = modernity_score(signals);
+    // LocalScan is built for lead generation, not website scoring. Higher values
+    // represent a stronger sales opportunity: a business with a weak, outdated,
+    // or inaccessible website is a better candidate to contact than a polished one.
+    let accessibility = 100.0 - accessibility_score(axe_report);
+    let performance = 100.0 - performance_score(signals);
+    let seo = 100.0 - seo_score(basics, signals);
+    let basics_s = 100.0 - basics_score(basics);
+    let modernity = 100.0 - modernity_score(signals);
 
     let overall = accessibility * WEIGHT_ACCESSIBILITY
         + performance * WEIGHT_PERFORMANCE

@@ -122,15 +122,15 @@ export default function Home() {
     <main className="landing-page">
       <nav className="site-nav" aria-label="Main navigation">
         <a className="brand" href="/" aria-label="LocalScan home"><span className="brand-mark" aria-hidden="true">L</span>LocalScan</a>
-        <span className="nav-note">Local intelligence, made simple.</span>
+        <span className="nav-note">Lead generation for local websites.</span>
       </nav>
 
       {!isReady ? (
         <section className="hero" aria-labelledby="hero-title">
           <div className="hero-copy">
-            <p className="eyebrow">Discover what&apos;s nearby</p>
-            <h1 id="hero-title">Find the businesses<br /><em>that matter.</em></h1>
-            <p className="hero-description">Enter a ZIP code to uncover local businesses and get a clear view of their online presence.</p>
+            <p className="eyebrow">Discover nearby businesses</p>
+            <h1 id="hero-title">Find the local shops<br /><em>most likely to need help.</em></h1>
+            <p className="hero-description">Search a ZIP code to spot businesses with weak digital presence, outdated sites, and promising sales opportunities.</p>
             <form className="search-form" onSubmit={handleSubmit} noValidate>
               <label htmlFor="zip">Search by ZIP code</label>
               <div className="input-row">
@@ -139,14 +139,14 @@ export default function Home() {
               </div>
               {error && <p className="form-message error" id="zip-error" role="alert">{error}</p>}
             </form>
-            {jobId && <div className="search-result" role="status" aria-live="polite"><span className="pulse" aria-hidden="true" /><div><strong>{statusLabel}</strong><p>We’re gathering local business information now.</p></div></div>}
+            {jobId && <div className="search-result" role="status" aria-live="polite"><span className="pulse" aria-hidden="true" /><div><strong>{statusLabel}</strong><p>We’re gathering local business details and website-fit signals now.</p></div></div>}
           </div>
-          <div className="hero-art" aria-hidden="true"><div className="art-orbit orbit-one" /><div className="art-orbit orbit-two" /><div className="map-card"><span className="map-label label-top">LOCAL</span><span className="map-label label-bottom">SCAN</span><div className="map-grid" /><div className="map-pin"><span /></div><div className="map-card-footer"><span className="map-dot" /><span>Ready to explore</span></div></div></div>
+          <div className="hero-art" aria-hidden="true"><div className="art-orbit orbit-one" /><div className="art-orbit orbit-two" /><div className="map-card"><span className="map-label label-top">LOCAL</span><span className="map-label label-bottom">LEADS</span><div className="map-grid" /><div className="map-pin"><span /></div><div className="map-card-footer"><span className="map-dot" /><span>Ready to target</span></div></div></div>
         </section>
       ) : (
         <section className="results-page" aria-labelledby="results-title">
           <div className="results-heading">
-            <div><p className="eyebrow">Search results · {zip}</p><h1 id="results-title">Your local <em>landscape.</em></h1><p className="results-summary">{results.length} businesses found near this ZIP code.</p></div>
+            <div><p className="eyebrow">Lead targets · {zip}</p><h1 id="results-title">Your local <em>opportunity map.</em></h1><p className="results-summary">{results.length} businesses found near this ZIP code with lead potential.</p></div>
             <div className="view-toggle" role="group" aria-label="Results view"><button className={view === "map" ? "active" : ""} onClick={() => setView("map")}>Map view</button><button className={view === "list" ? "active" : ""} onClick={() => setView("list")}>List view</button></div>
           </div>
           {error && <p className="form-message error" role="alert">{error}</p>}
@@ -165,7 +165,7 @@ export default function Home() {
           ) : <div className="results-list">{results.map((result, index) => <ResultCard key={result.id} result={result} index={index} />)}</div>}
         </section>
       )}
-      <footer className="site-footer"><span>Built for better local discovery.</span><span>One ZIP code at a time.</span></footer>
+      <footer className="site-footer"><span>Built for local sales leads.</span><span>One ZIP code at a time.</span></footer>
     </main>
   );
 }
@@ -173,15 +173,61 @@ export default function Home() {
 function ResultPanel({ result }: { result?: Result }) {
   if (!result) return <aside className="result-panel empty"><strong>No businesses yet</strong><p>Results will appear here as they are discovered.</p></aside>;
   const dimensions = [
-    ["Accessibility", result.accessibility_score],
-    ["Performance", result.performance_score],
-    ["SEO", result.seo_score],
-    ["Basics", result.basics_score],
-    ["Modernity", result.modernity_score],
+    ["Accessibility gaps", result.accessibility_score],
+    ["Performance gaps", result.performance_score],
+    ["SEO gaps", result.seo_score],
+    ["Brand basics", result.basics_score],
+    ["Modernity gaps", result.modernity_score],
   ] as const;
-  return <aside className="result-panel"><p className="card-kicker">{result.category ?? "Local business"}</p><h2>{result.name}</h2><p className="result-address">{result.address ?? "Address unavailable"}</p><div className="score-large">{scoreLabel(result.overall_score)}</div><p className="score-note">Overall online presence score</p><div className="score-breakdown">{dimensions.map(([label, score]) => <div className="score-row" key={label}><span>{label}</span><strong>{scoreLabel(score)}</strong><div className="score-track"><i style={{ width: `${score ?? 0}%` }} /></div></div>)}</div>{result.website_url && <a className="website-link" href={result.website_url} target="_blank" rel="noreferrer">Visit website <span>↗</span></a>}</aside>;
+
+  return (
+    <aside className="result-panel">
+      <p className="card-kicker">{result.category ?? "Local business"}</p>
+      <h2>{result.name}</h2>
+      <div className="result-meta">
+        {result.address && <p><strong>Address:</strong> {result.address}</p>}
+        {result.phone && <p><strong>Phone:</strong> {result.phone}</p>}
+      </div>
+      <div className="score-large">{scoreLabel(result.overall_score)}</div>
+      <p className="score-note">Lead opportunity score</p>
+      <p className="score-summary">Higher score means the business looks more likely to need a new website or software stack.</p>
+      <div className="score-breakdown">
+        {dimensions.map(([label, score]) => (
+          <div className="score-row" key={label}>
+            <span>{label}</span>
+            <strong>{scoreLabel(score)}</strong>
+            <div className="score-track"><i style={{ width: `${score ?? 0}%` }} /></div>
+          </div>
+        ))}
+      </div>
+      <div className="result-links">
+        {result.website_url ? (
+          <a className="website-link" href={result.website_url} target="_blank" rel="noreferrer">Visit website <span>↗</span></a>
+        ) : (
+          <span className="website-link muted">No website found</span>
+        )}
+      </div>
+    </aside>
+  );
 }
 
 function ResultCard({ result, index }: { result: Result; index: number }) {
-  return <article className="result-card"><span className="list-number">{String(index + 1).padStart(2, "0")}</span><div className="result-card-copy"><p className="card-kicker">{result.category ?? "Local business"}</p><h2>{result.name}</h2><p className="result-address">{result.address ?? "Address unavailable"}</p></div><div className="list-score"><strong>{scoreLabel(result.overall_score)}</strong><span>overall score</span></div></article>;
+  const websiteStatus = result.website_url ? "Website found" : "No website found";
+  const phoneStatus = result.phone ? result.phone : "No phone listed";
+
+  return (
+    <article className="result-card">
+      <span className="list-number">{String(index + 1).padStart(2, "0")}</span>
+      <div className="result-card-copy">
+        <p className="card-kicker">{result.category ?? "Local business"}</p>
+        <h2>{result.name}</h2>
+        <p className="result-address">{result.address ?? "Address unavailable"}</p>
+        <p className="result-meta-line">{websiteStatus} · {phoneStatus}</p>
+      </div>
+      <div className="list-score">
+        <strong>{scoreLabel(result.overall_score)}</strong>
+        <span>lead score</span>
+      </div>
+    </article>
+  );
 }
