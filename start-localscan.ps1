@@ -41,9 +41,9 @@ $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
 while ((Get-Date) -lt $deadline) {
     if (Test-Path -LiteralPath $PidPath) {
         $pidText = (Get-Content -LiteralPath $PidPath -Raw -ErrorAction SilentlyContinue).Trim()
-        $pid = 0
-        if ([int]::TryParse($pidText, [ref]$pid)) {
-            if (Get-Process -Id $pid -ErrorAction SilentlyContinue) {
+        $servicePid = 0
+        if ([int]::TryParse($pidText, [ref]$servicePid)) {
+            if (Get-Process -Id $servicePid -ErrorAction SilentlyContinue) {
                 return
             }
         }
