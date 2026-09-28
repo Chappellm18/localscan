@@ -219,7 +219,7 @@ async fn db_upsert_business(
 ) -> Result<Uuid> {
     // Upsert on (source, source_id) so re-running discovery for a ZIP
     // updates existing rows rather than duplicating them.
-    let rec = sqlx::query!(
+    let id = sqlx::query_scalar::<_, Uuid>(
         r#"
         INSERT INTO businesses (discovery_job_id, name, address, zip, lat, lng, category, phone, website_url, source, source_id, last_fetched_at)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now())
@@ -234,20 +234,20 @@ async fn db_upsert_business(
             last_fetched_at = now()
         RETURNING id
         "#,
-        job.job_id,
-        biz.name,
-        biz.address,
-        job.zip,
-        biz.lat,
-        biz.lng,
-        biz.category,
-        biz.phone,
-        biz.website_url,
-        biz.source,
-        biz.source_id,
     )
+    .bind(job.job_id)
+    .bind(&biz.name)
+    .bind(&biz.address)
+    .bind(&job.zip)
+    .bind(biz.lat)
+    .bind(biz.lng)
+    .bind(&biz.category)
+    .bind(&biz.phone)
+    .bind(&biz.website_url)
+    .bind(&biz.source)
+    .bind(&biz.source_id)
     .fetch_one(pool)
     .await?;
 
-    Ok(rec.id)
+    Ok(id)
 }
