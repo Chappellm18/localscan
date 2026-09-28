@@ -5,7 +5,12 @@ import dynamic from "next/dynamic";
 
 const BusinessMap = dynamic(() => import("./components/BusinessMap"), {
   ssr: false,
-  loading: () => <div className="interactive-map map-loading">Loading OpenStreetMap…</div>,
+  loading: () => (
+    <div className="interactive-map map-loading" role="status">
+      <span className="map-loading-indicator" aria-hidden="true" />
+      <span>Preparing your map…</span>
+    </div>
+  ),
 });
 
 type JobStatus = { status?: string; [key: string]: string | undefined };
@@ -41,6 +46,8 @@ export default function Home() {
   const [view, setView] = useState<ViewMode>("map");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoadingResults, setIsLoadingResults] = useState(false);
+  const [resultsUnavailable, setResultsUnavailable] = useState(false);
   const eventSourceRef = useRef<EventSource | null>(null);
   const terminalStatusRef = useRef(false);
 
@@ -52,6 +59,22 @@ export default function Home() {
     const data = (await response.json()) as { results: Result[] };
     setResults(data.results);
     setSelectedId(data.results[0]?.id ?? null);
+    setResultsUnavailable(false);
+  }
+
+  async function retryResults() {
+    if (!jobId) return;
+
+    setError("");
+    setIsLoadingResults(true);
+    try {
+      await loadResults(jobId);
+    } catch (loadError) {
+      setResultsUnavailable(true);
+      setError(loadError instanceof Error ? loadError.message : "Results could not be loaded.");
+    } finally {
+      setIsLoadingResults(false);
+    }
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -67,6 +90,8 @@ export default function Home() {
     setResults([]);
     setSelectedId(null);
     setJobId(null);
+    setResultsUnavailable(false);
+    setIsLoadingResults(false);
     eventSourceRef.current?.close();
     terminalStatusRef.current = false;
     setIsSubmitting(true);
@@ -88,10 +113,14 @@ export default function Home() {
         setStatus(nextStatus);
         if (nextStatus.status === "completed") {
           terminalStatusRef.current = true;
+          setIsLoadingResults(true);
           try {
             await loadResults(data.jobId);
           } catch (loadError) {
+            setResultsUnavailable(true);
             setError(loadError instanceof Error ? loadError.message : "Results could not be loaded.");
+          } finally {
+            setIsLoadingResults(false);
           }
         } else if (nextStatus.status === "failed") {
           terminalStatusRef.current = true;
@@ -146,14 +175,14 @@ export default function Home() {
       ) : (
         <section className="results-page" aria-labelledby="results-title">
           <div className="results-heading">
-            <div><p className="eyebrow">Lead targets · {zip}</p><h1 id="results-title">Your local <em>opportunity map.</em></h1><p className="results-summary">{results.length} businesses found near this ZIP code with lead potential.</p></div>
+            <div><p className="eyebrow">Lead targets · {zip}</p><h1 id="results-title">Your local <em>opportunity map.</em></h1><p className="results-summary">{isLoadingResults ? "Loading discovered businesses…" : resultsUnavailable ? "Business data is temporarily unavailable." : results.length === 0 ? "No businesses were found for this ZIP code yet." : `${results.length} businesses found near this ZIP code with lead potential.`}</p></div>
             <div className="view-toggle" role="group" aria-label="Results view"><button className={view === "map" ? "active" : ""} onClick={() => setView("map")}>Map view</button><button className={view === "list" ? "active" : ""} onClick={() => setView("list")}>List view</button></div>
           </div>
           {error && <p className="form-message error" role="alert">{error}</p>}
           {view === "map" ? (
             <div className="results-layout">
               <aside className="results-sidebar" aria-label="Businesses in search area">
-                <p className="sidebar-label">Businesses</p>
+                <p className="sidebar-label">Businesses <span>{results.length}</span></p>
                 <div className="results-sidebar-list">
                   {results.map((result, index) => (
                     <ResultCard
@@ -164,8 +193,17 @@ export default function Home() {
                       onSelect={setSelectedId}
                     />
                   ))}
+                  {results.length === 0 && (
+                    <EmptyResults
+                      unavailable={resultsUnavailable}
+                      loading={isLoadingResults}
+                      onRetry={retryResults}
+                    />
+                  )}
                 </div>
-                <ResultPanel result={results.find((result) => result.id === selectedId) ?? results[0]} />
+                {results.length > 0 && (
+                  <ResultPanel result={results.find((result) => result.id === selectedId) ?? results[0]} />
+                )}
               </aside>
               <div className="map-pane" aria-label="Interactive OpenStreetMap business map">
                 <BusinessMap
@@ -173,14 +211,50 @@ export default function Home() {
                   selectedId={selectedId}
                   onSelect={setSelectedId}
                   zip={zip}
+                  dataUnavailable={resultsUnavailable}
+                  isLoading={isLoadingResults}
                 />
               </div>
             </div>
-          ) : <div className="results-list">{results.map((result, index) => <ResultCard key={result.id} result={result} index={index} />)}</div>}
+          ) : (
+            <div className="results-list">
+              {results.map((result, index) => <ResultCard key={result.id} result={result} index={index} />)}
+              {results.length === 0 && (
+                <EmptyResults
+                  unavailable={resultsUnavailable}
+                  loading={isLoadingResults}
+                  onRetry={retryResults}
+                />
+              )}
+            </div>
+          )}
         </section>
       )}
       <footer className="site-footer"><span>Built for local sales leads.</span><span>One ZIP code at a time.</span></footer>
     </main>
+  );
+}
+
+function EmptyResults({
+  unavailable,
+  loading,
+  onRetry,
+}: {
+  unavailable: boolean;
+  loading: boolean;
+  onRetry: () => void;
+}) {
+  return (
+    <div className="results-empty" role={loading ? "status" : undefined}>
+      <span className="empty-mark" aria-hidden="true">{loading ? "…" : unavailable ? "!" : "0"}</span>
+      <div>
+        <strong>{loading ? "Loading business data" : unavailable ? "Results are unavailable" : "No businesses found yet"}</strong>
+        <p>{loading ? "The search is complete. We’re getting the details ready." : unavailable ? "The map is still here; we couldn’t retrieve this search’s business details." : "Try another ZIP code, or check back after more local sources are available."}</p>
+        {unavailable && !loading && (
+          <button className="retry-button" onClick={onRetry} type="button">Try loading again</button>
+        )}
+      </div>
+    </div>
   );
 }
 
