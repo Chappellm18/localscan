@@ -64,3 +64,20 @@ pub async fn write_status(
     conn.expire::<_, ()>(&key, 60 * 60 * 24).await?; // 24h TTL
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{JobStage, JobStatus};
+
+    #[test]
+    fn job_status_and_stage_use_the_api_wire_format() {
+        assert_eq!(
+            serde_json::to_string(&JobStatus::Running).unwrap(),
+            "\"running\""
+        );
+        assert_eq!(
+            serde_json::to_string(&JobStage::CrawlingSources).unwrap(),
+            "\"crawling_sources\""
+        );
+    }
+}

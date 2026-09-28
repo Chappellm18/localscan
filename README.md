@@ -98,6 +98,20 @@ Use `-SearchRoot` to limit cleanup to a specific parent folder:
 Then `POST /api/jobs/discover` with `{ "zip": "10940" }` to kick off a run,
 and open an SSE connection to `/api/jobs/{jobId}/stream` to watch progress.
 
+## Automated tests
+
+The API and Rust tests run locally without starting the website, Redis, or
+Postgres. API tests mock the service boundaries and exercise the Next.js route
+handlers; Rust tests cover worker payload compatibility, discovery field
+normalization, and scoring behavior.
+
+```bash
+cd apps/web && npm ci && npm test
+cd ../../workers && cargo test --workspace
+```
+
+GitHub Actions runs both test suites for pushes and pull requests.
+
 ## What's scaffolded vs. what's deferred
 
 This is a working skeleton, not a finished product. Wired up end-to-end:

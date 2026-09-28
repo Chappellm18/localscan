@@ -54,3 +54,53 @@ pub fn normalize(candidates: Vec<RawCandidate>) -> Result<Vec<Business>> {
     }
     Ok(out)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{normalize, RawCandidate};
+    use serde_json::json;
+
+    #[test]
+    fn normalize_maps_business_fields_from_source_data() {
+        let businesses = normalize(vec![RawCandidate {
+            source: "business_website".to_string(),
+            source_id: "osm:42".to_string(),
+            raw_fields: json!({
+                "name": "Example Cafe",
+                "address": "1 Main St",
+                "category": "cafe",
+                "phone": "555-0100",
+                "website_url": "https://example.com",
+                "lat": 41.5,
+                "lng": -73.5
+            }),
+        }])
+        .unwrap();
+
+        assert_eq!(businesses.len(), 1);
+        let business = &businesses[0];
+        assert_eq!(business.name, "Example Cafe");
+        assert_eq!(business.address.as_deref(), Some("1 Main St"));
+        assert_eq!(business.category.as_deref(), Some("cafe"));
+        assert_eq!(business.phone.as_deref(), Some("555-0100"));
+        assert_eq!(business.website_url.as_deref(), Some("https://example.com"));
+        assert_eq!(business.lat, Some(41.5));
+        assert_eq!(business.lng, Some(-73.5));
+        assert_eq!(business.source, "business_website");
+        assert_eq!(business.source_id, "osm:42");
+    }
+
+    #[test]
+    fn normalize_preserves_the_existing_fallback_for_missing_values() {
+        let businesses = normalize(vec![RawCandidate {
+            source: "facebook".to_string(),
+            source_id: "page:1".to_string(),
+            raw_fields: json!({}),
+        }])
+        .unwrap();
+
+        assert_eq!(businesses[0].name, "unknown");
+        assert_eq!(businesses[0].address, None);
+        assert_eq!(businesses[0].website_url, None);
+    }
+}

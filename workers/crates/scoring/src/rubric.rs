@@ -190,3 +190,60 @@ pub async fn collect_page_signals(page: &Page) -> Result<PageSignals> {
     let json = page.evaluate(script).await?.into_value::<String>()?;
     Ok(serde_json::from_str(&json)?)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{compute_score, BasicsCheck, PageSignals};
+    use serde_json::json;
+
+    fn strong_site_basics() -> BasicsCheck {
+        BasicsCheck {
+            has_https: true,
+            has_viewport_meta: true,
+            has_title: true,
+            has_meta_description: true,
+        }
+    }
+
+    fn strong_site_signals() -> PageSignals {
+        PageSignals {
+            load_time_ms: Some(1_000.0),
+            has_structured_data: true,
+            heading_count: 3,
+            has_broken_links: false,
+            responsive_breakpoints: 3,
+            has_modern_css: true,
+        }
+    }
+
+    #[test]
+    fn a_site_that_passes_every_check_has_no_sales_opportunity_penalty() {
+        let score = compute_score(
+            &json!({"violations": []}),
+            &strong_site_basics(),
+            &strong_site_signals(),
+        );
+
+        assert_eq!(score.overall, 0.0);
+        assert_eq!(score.accessibility, 0.0);
+        assert_eq!(score.performance, 0.0);
+        assert_eq!(score.seo, 0.0);
+        assert_eq!(score.basics, 0.0);
+        assert_eq!(score.modernity, 0.0);
+    }
+
+    #[test]
+    fn accessibility_penalties_scale_by_impact_and_node_count() {
+        let report = json!({
+            "violations": [{
+                "impact": "moderate",
+                "nodes": [{}, {}]
+            }]
+        });
+
+        let score = compute_score(&report, &strong_site_basics(), &strong_site_signals());
+
+        assert_eq!(score.accessibility, 4.0);
+        assert!((score.overall - 1.2).abs() < 0.001);
+    }
+}
