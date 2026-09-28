@@ -150,11 +150,26 @@ async fn score_business(
     .await?;
 
     let page = browser.new_page(&job.website_url).await?;
-    page.wait_for_navigation().await?;
+    let page_result = async {
+        page.wait_for_navigation().await?;
 
-    let axe_report = axe::run_axe(&page).await?;
-    let basics = rubric::check_basics(&page).await?;
-    let signals = rubric::collect_page_signals(&page).await?;
+        let axe_report = axe::run_axe(&page).await?;
+        let basics = rubric::check_basics(&page).await?;
+        let signals = rubric::collect_page_signals(&page).await?;
+        Ok((axe_report, basics, signals))
+    }
+    .await;
+    let close_result = page.close().await;
+
+    let (axe_report, basics, signals) = match (page_result, close_result) {
+        (Ok(result), Ok(())) => result,
+        (Err(error), Ok(())) => return Err(error),
+        (Ok(_), Err(error)) => return Err(error.into()),
+        (Err(error), Err(close_error)) => {
+            return Err(error.context(format!("also failed to close browser page: {close_error}")))
+        }
+    };
+
     let score = rubric::compute_score(&axe_report, &basics, &signals);
 
     sqlx::query(
